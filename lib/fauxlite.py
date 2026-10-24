@@ -26,6 +26,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
 
 PLUGIN = "fpp-plugin-FauxLite"
 MEDIADIR = os.environ.get("MEDIADIR", "/home/fpp/media")
@@ -38,8 +39,7 @@ HOST_RE = re.compile(r"^[A-Za-z0-9._-]+(:[0-9]{1,5})?$")
 PAGES_ALL = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 PAGES_MSG = PAGES_ALL[:24]  # A-X: Y and Z are reserved for one-shot messages
 
-# Pro-Lite protocol code tables (Faux-Lite-Addon custom_components/
-# fauxlite_display/const.py).
+# Pro-Lite protocol code tables.
 COLORS = {
     "dim_red": "CA", "red": "CB", "bright_red": "CC", "orange": "CD",
     "bright_orange": "CE", "light_yellow": "CF", "yellow": "CG",
@@ -201,10 +201,12 @@ def sanitize(text):
     return t
 
 
-def page_write(page, text, color="", font="", size="", function=""):
+def page_write(page, text, color="", font="", size="", function="",
+               escape=True):
     """Build '<P?><F?><C?><S?>text ' — the trailing space keeps a short
-    message from tripping the sign's demo mode (same trick the HA
-    integration uses)."""
+    message from tripping the sign's demo mode. escape=False is for
+    text that already went through sanitize() + field injection (the
+    countdown writer), which legitimately contains '<Fx>' codes."""
     cmd = "<P%s>" % page
     f = resolve(function, FUNCTIONS)
     c = resolve(color, COLORS)
@@ -218,7 +220,83 @@ def page_write(page, text, color="", font="", size="", function=""):
         cmd += "<%s>" % fo
     if s:
         cmd += "<%s>" % s
-    return cmd + sanitize(text) + " "
+    return cmd + (sanitize(text) if escape else text) + " "
+
+
+# Live countdown fields the sign renders itself inside page text.
+COUNTDOWN_FIELDS = {
+    "target": "F1", "current": "F2", "days": "F3",
+    "hours": "F4", "minutes": "F5", "seconds": "F6",
+}
+
+
+def countdown_text(fmt):
+    """Turn '{days} {hours}:{minutes}:{seconds}' style placeholders into
+    the sign's live countdown fields (<F3>..<F6>, <F1> target, <F2>
+    current). sanitize() runs first so user '<>' can't inject codes, then
+    the real fields are injected."""
+    t = sanitize(fmt)
+    for name, code in COUNTDOWN_FIELDS.items():
+        t = t.replace("{%s}" % name, "<%s>" % code)
+    return t
+
+
+def countdown(cfg, args):
+    """Program the sign's countdown timer to a wall-clock target and
+    (optionally) write a live countdown page.
+
+    <VddddhhmmP> sets the remaining duration and the page to switch to at
+    zero; it takes whole minutes so we round UP — hitting zero a few
+    seconds late beats hitting it early."""
+    m = re.match(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$", (args.time or "").strip())
+    if not m:
+        log("countdown: bad --time %r (want HH:MM[:SS])" % args.time)
+        return 1
+    hh, mm, ss = int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)
+    if hh > 23 or mm > 59 or ss > 59:
+        log("countdown: --time out of range %r" % args.time)
+        return 1
+
+    now = datetime.now()
+    dstr = (args.date or "").strip()
+    if dstr:
+        try:
+            d = datetime.strptime(dstr, "%Y-%m-%d").date()
+        except ValueError:
+            log("countdown: bad --date %r (want YYYY-MM-DD)" % dstr)
+            return 1
+        target = datetime(d.year, d.month, d.day, hh, mm, ss)
+    else:
+        target = now.replace(hour=hh, minute=mm, second=ss, microsecond=0)
+        if target <= now:
+            target += timedelta(days=1)
+    if target <= now:
+        log("countdown: target %s is in the past" % target)
+        return 1
+
+    total_min = (int((target - now).total_seconds()) + 59) // 60
+    days, rem = divmod(total_min, 1440)
+    hours, minutes = divmod(rem, 60)
+    if days > 9999:
+        log("countdown: %d days out is too far" % days)
+        return 1
+
+    end_page = page_letter(args.end_page, PAGES_MSG)
+    if not send_command(cfg, "<V%04d%02d%02d%s>"
+                      % (days, hours, minutes, end_page)):
+        return 1
+    log("countdown armed: %dd %dh %dm -> page %s (target %s)"
+        % (days, hours, minutes, end_page, target))
+
+    text = countdown_text(args.format or "")
+    if not text.strip():
+        return 0  # timer set; user only wanted it programmed
+    page = page_letter(args.page, PAGES_MSG)
+    cmd = page_write(page, text, args.color, args.font,
+                     args.size, args.function, escape=False)
+    if args.display_mode == "display":
+        cmd += "<RP%s>" % page
+    return 0 if send_command(cfg, cmd) else 1
 
 
 class _Fields(dict):
@@ -339,7 +417,7 @@ def do_info(cfg):
 
 
 def oneshot(cfg, text, repeat, color, font, size, function, beep):
-    """HA-style one-shot: blank Y, message on Z, run Z xN then back to Y."""
+    """One-shot: blank Y, message on Z, run Z xN then back to Y."""
     page_y = page_write("Y", " ", function=function)
     page_z = page_write("Z", text, color, font, size, function)
     repeat = max(1, min(99, int(repeat or 1)))
@@ -414,6 +492,26 @@ def build_parser():
     s = sub.add_parser("beep")
     s.add_argument("--count", type=int, default=1)
 
+    s = sub.add_parser("countdown",
+                       help="count down to a wall-clock time on the sign")
+    s.add_argument("--time", required=True,
+                   help="target clock time HH:MM[:SS]")
+    s.add_argument("--date", default="",
+                   help="YYYY-MM-DD; blank = today, or tomorrow if past")
+    s.add_argument("--format", default="{hours}:{minutes}:{seconds}",
+                   help="text with {days} {hours} {minutes} {seconds} "
+                        "{target} {current} live fields; blank = only "
+                        "program the timer")
+    s.add_argument("--page", default="A")
+    s.add_argument("--end-page", default="A",
+                   help="page shown when the countdown reaches zero")
+    s.add_argument("--color", default="")
+    s.add_argument("--font", default="")
+    s.add_argument("--size", default="")
+    s.add_argument("--function", default="")
+    s.add_argument("--display-mode", default="display",
+                   choices=["display", "store"])
+
     sub.add_parser("info", help="print device info/queue as JSON")
     sub.add_parser("stopaction", help="run the configured stop action")
     return p
@@ -485,6 +583,9 @@ def main(argv):
 
     if args.action == "beep":
         return 0 if beep(cfg, args.count) else 1
+
+    if args.action == "countdown":
+        return countdown(cfg, args)
 
     if args.action == "stopaction":
         return 0 if stop_action(cfg) else 1

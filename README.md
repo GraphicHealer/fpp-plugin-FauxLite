@@ -56,12 +56,25 @@ GPIO scripts, command editor):
 | FauxLite - Run Page | switch the display to page A–Z |
 | FauxLite - Blank Display | show an empty page |
 | FauxLite - Show Time / Date | show the sign's built-in clock/date |
+| FauxLite - Countdown To Time | count down to a show start — programs the sign's countdown timer and writes a live `{hours}:{minutes}:{seconds}` page; at zero the sign switches to the end page |
 | FauxLite - Beep | beep the sign's speaker |
 | FauxLite - Start / Stop Message Queue | control the device's own message loop |
 | FauxLite - Send Raw Command | send any bare Pro-Lite protocol string |
 
 Pages **A–X** are yours. **Y and Z are reserved** for one-shot messages
 and beep — don't keep content there.
+
+## Countdowns
+
+**FauxLite - Countdown To Time** takes the show's start time (and
+optionally a date), computes the remaining duration, and sends it to the
+sign's built-in countdown timer (`<VddddhhmmP>`). The countdown text is a
+format string where `{days}`, `{hours}`, `{minutes}`, `{seconds}`,
+`{target}` and `{current}` become live fields the sign renders itself —
+e.g. `Show starts in {hours}:{minutes}:{seconds}` shows a ticking clock.
+When the countdown reaches zero the sign switches to the **end page** —
+fill that page beforehand (a "SHOWTIME!" message, for example) using
+*Send Message* with "Just store it in the page".
 
 ## Notes
 

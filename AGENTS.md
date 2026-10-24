@@ -11,7 +11,8 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
   exits. Never does network I/O itself.
 - `lib/fauxlite.py` — worker: Pro-Lite command builder + bounded-HTTP
   client + CLI (`media`/`playlist`/`lifecycle` handlers plus
-  `send/raw/run/blank/time/date/queue/oneshot/beep/info/stopaction`).
+  `send/raw/run/blank/time/date/queue/oneshot/beep/countdown/info/
+  stopaction`).
 - `lib/fauxlite.php` — same command spelling for the PHP side (page
   writes, host validation, HTTP). Keep in sync with the .py.
 - `api.php` — plugin API under `/api/plugin/fpp-plugin-FauxLite/*`
@@ -57,11 +58,16 @@ bare Pro-Lite strings (NO ID prefix). `GET /api/info` →
 duration}], runOnBoot, queueActive, queueSize}`;
 `POST /api/loop/start|stop` → queue control (start 400s if empty).
 
-Pro-Lite spelling (mirrors Faux-Lite-Addon hub.py):
+Pro-Lite spelling:
 - `<P?>` write page, `<RP?>` run page, `<RP?><NN><RP?>` run N times then
   switch, `<DP?>`/`<DP*>` delete, `<D*>` delete all, `<RST>` reset.
 - Colors `CA`–`CZ`, fonts `SA`–`SH`, sizes `SI`(5x7)/`SJ`(4x7),
   effects `FA`–`FW`,`FZ`,`F1`–`F6`; `FT`=clock, `FD`=date.
+- Countdown: `<VddddhhmmP>` programs the timer (whole minutes — we round
+  UP so zero lands late, not early) and the page to switch to at zero.
+  Page text can embed live fields: `F3`–`F6` = days/hours/min/sec left,
+  `F1` target, `F2` current — inject AFTER sanitize() so the `<Fx>`
+  codes survive (page_write escape=False does exactly that).
 - Pages A–X free; **Y and Z reserved** for one-shot/beep (blank Y +
   message Z + `<RPZ><NN><RPY>` restores what was showing).
 - Trailing space after text keeps the sign out of demo mode.
