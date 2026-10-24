@@ -1,0 +1,44 @@
+{
+    "repoName": "fpp-plugin-FauxLite",
+    "name": "FauxLite",
+    "author": "GraphicHealer",
+    "description": "Show FPP now-playing info and custom messages on a Pro-Lite LED sign through a FauxLite WiFi-to-serial bridge.",
+    "homeURL": "https://github.com/GraphicHealer/fpp-plugin-FauxLite",
+    "iconURL": "https://raw.githubusercontent.com/GraphicHealer/fpp-plugin-FauxLite/master/icon.png",
+    "srcURL": "https://github.com/GraphicHealer/fpp-plugin-FauxLite.git",
+    "bugURL": "https://github.com/GraphicHealer/fpp-plugin-FauxLite/issues",
+    "documentation": "https://github.com/GraphicHealer/fpp-plugin-FauxLite/blob/master/README.md",
+    "allowUpdates": 1,
+    "releaseNotesStyle": "gitHistory",
+    "privacy": {
+        "summary": "Sends message text and 'now playing' song info to the FauxLite LED-sign controller you configure, so it can show them on a Pro-Lite display.",
+        "sends": [
+            {
+                "to": "the FauxLite device at the local address you configure",
+                "what": "message text, page/style commands, now-playing song title/artist/filename",
+                "why": "to display it on the LED sign",
+                "alwaysOn": false
+            }
+        ],
+        "collects": [],
+        "sensors": [],
+        "remoteAccess": "none",
+        "systemChanges": [],
+        "closedCode": false,
+        "other": "All traffic is plain HTTP on your LAN to the single device address you enter. Nothing is sent until the device address is set and the plugin is enabled (or a FPP command is used); now-playing updates only run while that option is on. No credentials are used and nothing leaves your network."
+    },
+    "versions": [
+        {
+            "minFPPVersion": "9.0",
+            "maxFPPVersion": "9.99",
+            "branch": "master",
+            "sha": ""
+        },
+        {
+            "minFPPVersion": "10.0",
+            "maxFPPVersion": "0",
+            "branch": "master",
+            "sha": ""
+        }
+    ]
+}

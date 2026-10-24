@@ -1,0 +1,3 @@
+# Force LF on checkout — shell/python/PHP break under CRLF on Linux.
+*      text=auto eol=lf
+*.png  binary
