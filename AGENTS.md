@@ -18,10 +18,15 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
 - `api.php` — plugin API under `/api/plugin/fpp-plugin-FauxLite/*`
   (info/send/raw/runpage/blank/time/date/oneshot/beep/queue/test).
 - `settings.json` — declarative fields (PrintSettingGroup, instant save).
-  Keys: `enabled`, `host`, `npEnabled`, `npPage`, `npFormat`,
-  `npFunction`, `npColor`, `npFont`, `npSize`, `stopAction` (keep|blank|
+  Keys: `enabled`, `host`, `npEnabled`, `npRestoreQueue`,
+  `showName`/`showTagline`/`showHost`/`showLocation`/`showSchedule`/
+  `showUrl` (the `{show*}` placeholders), `stopAction` (keep|blank|
   time|date|custom|queue), `stopPage`, `stopText`, `stopColor`,
-  `stopFunction`.
+  `stopFunction`. `npPages` = base64 JSON array of
+  `{page,text,function,color,font,size,duration,enabled}` written by the
+  content.php page editor (not a declared field — survives as a plain
+  key=value line). Legacy `npPage`/`npFormat`/`npFunction`/`npColor`/
+  `npFont`/`npSize` are still honored when `npPages` is empty.
 - `commands/descriptions.json` + `commands/*.sh` — thin wrappers that
   exec `lib/fauxlite.py`; arg order in the .sh must match `args[]`.
 - `content.php` (output menu), `status.php` (status menu), `about.php`
@@ -61,6 +66,12 @@ duration}], runOnBoot, queueActive, queueSize}`;
 Pro-Lite spelling:
 - `<P?>` write page, `<RP?>` run page, `<RP?><NN><RP?>` run N times then
   switch, `<DP?>`/`<DP*>` delete, `<D*>` delete all, `<RST>` reset.
+- **`<RPx>` is a standalone command — never append it to a page write.**
+  Everything after `<Px>` is page *text*; `<PA>text <RPA>` shows literal
+  `<RPA>` on the sign. Write the page (`<Px>...text `), then send
+  `<RPx>` as its own `/api/send`. `run_page()`/`write_and_run()` exist
+  for exactly this; oneshot/beep's `<RPZ><NN><RPY>` is already a
+  standalone command string.
 - Colors `CA`–`CZ`, fonts `SA`–`SH`, sizes `SI`(5x7)/`SJ`(4x7),
   effects `FA`–`FW`,`FZ`,`F1`–`F6`; `FT`=clock, `FD`=date.
 - Countdown: `<VddddhhmmP>` programs the timer (whole minutes — we round
@@ -70,6 +81,17 @@ Pro-Lite spelling:
   codes survive (page_write escape=False does exactly that).
 - Pages A–X free; **Y and Z reserved** for one-shot/beep (blank Y +
   message Z + `<RPZ><NN><RPY>` restores what was showing).
+- Multi-page rotation = the device's own message queue loaded with
+  `{command:"<RPx>",duration:secs}` entries + `loop/start` — verified
+  firmware behavior, and page-content updates don't disturb it.
+  `ensure_rotation()` snapshots the user's queue on takeover
+  (`GET /api/messages` → state file) and `release_rotation()` restores
+  it on playlist stop/shutdown when `npRestoreQueue` is on (default);
+  POST /api/messages persists to ESP32 flash so it only happens when
+  the rotation signature changes. `<FZ>` "Link Page" is listed in the
+  Tru-Color II doc's function table but its operand syntax is
+  undocumented everywhere we looked — do NOT emit it without hardware
+  verification.
 - Trailing space after text keeps the sign out of demo mode.
 - Text is sanitized to ASCII with `<>`/control chars stripped — song
   metadata must not inject protocol codes.
@@ -77,8 +99,10 @@ Pro-Lite spelling:
 ## Ops notes
 
 - Config lives in `config/plugin.fpp-plugin-FauxLite` (key=value,
-  written by SetPluginSetting). The plugin stores no state and needs no
-  plugindata dir and no daemon — keep it that way.
+  written by SetPluginSetting/WriteSettingToFile). No daemon. The only
+  state file is `plugindata/fpp-plugin-FauxLite/np-state.json` —
+  rotation signature + the device-queue snapshot taken on takeover so
+  the user's queue comes back after the show.
 - Single plugin log `logs/plugin-fpp-plugin-FauxLite.log` (FPP rotates).
 - HTTP timeouts: 4s total, always bounded; failures log + return, never
   stall fppd.

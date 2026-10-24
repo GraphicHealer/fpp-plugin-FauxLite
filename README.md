@@ -33,16 +33,51 @@ and use this repo's URL, or copy the folder into FPP's plugin directory.
 1. **Device Address** — IP or mDNS name of the bridge, e.g.
    `192.168.1.120` or `faux-lite-AB12CD.local`.
 2. **Enabled** — master switch; nothing is sent until this is on.
-3. Optionally enable **Show Now Playing** and tune the page, format
-   (`{title}`, `{artist}`, `{album}`, `{sequence}`, `{media}`,
-   `{filename}`, `{type}`), effect, color, font and size.
-4. Optionally pick a **when the show stops** action — leave as-is, blank,
+3. Optionally enable **Show Now Playing** and use the **Now Playing
+   Pages** editor — see below.
+4. Fill in **Show Info** if you want `{showName}`, `{showTagline}` and
+   friends available in page text.
+5. Optionally pick a **when the show stops** action — leave as-is, blank,
    show time, show date, custom message, or resume the device's own
    message queue.
 
 **Test Connection** on the same page probes the device's `/api/info`.
 **Status → FauxLite Status** shows live device state, the on-device
 message queue, and quick-send controls.
+
+## Now Playing pages
+
+The page editor builds the sign's rotation: each row is one page with its
+own text, effect, color, font, size and on-screen **seconds**. One row =
+a single static page; two or more rows rotate seamlessly, driven by the
+device's own message queue — the plugin loads `<RPx>` entries into the
+queue and starts the loop, so the sign cycles on its own and mid-song
+metadata updates just rewrite the page contents underneath.
+
+Example — `Jones Light Show` → `Now Playing:` → artist → title:
+
+| Page | Text | Secs |
+| --- | --- | --- |
+| A | `{showName}` | 8 |
+| B | `Now Playing:` | 3 |
+| C | `{artist}` | 6 |
+| D | `{title}` | 6 |
+
+Text placeholders: `{title}` `{artist}` `{album}` `{sequence}`
+`{media}` `{filename}` `{type}` `{year}` `{genre}` `{track}` `{comment}`
+`{length}` `{seconds}` `{minutes}` `{bitrate}` `{sampleRate}`
+`{channels}` (TagLib fields from the media file), the Show Info fields
+`{showName}` `{showTagline}` `{showHost}` `{showLocation}`
+`{showSchedule}` `{showUrl}`, and `{hostname}` `{hostdesc}` from FPP.
+A page whose text is just an **Effect** (e.g. Time or Date) shows that
+function — no text needed.
+
+The rotation borrows the device's message queue while the show runs.
+**Restore Device Queue on Stop** (default on) puts back whatever was
+queued before — the plugin snapshots it the first time it takes over.
+With no pages configured at all, the plugin falls back to a single
+`{title}` page (any pre-upgrade `npFormat`/`npPage`/etc. settings are
+still honored).
 
 ## FPP commands
 

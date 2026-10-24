@@ -19,6 +19,7 @@ Python 3 stdlib only.
 """
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -33,6 +34,9 @@ MEDIADIR = os.environ.get("MEDIADIR", "/home/fpp/media")
 LOGDIR = os.environ.get("LOGDIR", os.path.join(MEDIADIR, "logs"))
 SETTINGS_PATH = os.path.join(MEDIADIR, "config", "plugin." + PLUGIN)
 LOG_FILE = os.path.join(LOGDIR, "plugin-%s.log" % PLUGIN)
+DATADIR = os.path.join(MEDIADIR, "plugindata", PLUGIN)
+STATE_PATH = os.path.join(DATADIR, "np-state.json")
+FPP_API = os.environ.get("FPPAPI", "http://127.0.0.1")
 
 HTTP_TIMEOUT = 4
 HOST_RE = re.compile(r"^[A-Za-z0-9._-]+(:[0-9]{1,5})?$")
@@ -154,6 +158,22 @@ def send_command(cfg, command):
         return False
     log("sent: %s" % command)
     return True
+
+
+def run_page(cfg, page):
+    """Run a page. <RPx> is a standalone command: it must go over the
+    wire on its own — appended to a page write it becomes literal text
+    on the sign."""
+    return send_command(cfg, "<RP%s>" % page)
+
+
+def write_and_run(cfg, page, text, color="", font="", size="",
+                  function="", escape=True):
+    """Page write then separate run — the only correct way to show text."""
+    if not send_command(cfg, page_write(page, text, color, font, size,
+                                        function, escape=escape)):
+        return False
+    return run_page(cfg, page)
 
 
 def loop_action(cfg, action):
@@ -292,11 +312,14 @@ def countdown(cfg, args):
     if not text.strip():
         return 0  # timer set; user only wanted it programmed
     page = page_letter(args.page, PAGES_MSG)
-    cmd = page_write(page, text, args.color, args.font,
-                     args.size, args.function, escape=False)
     if args.display_mode == "display":
-        cmd += "<RP%s>" % page
-    return 0 if send_command(cfg, cmd) else 1
+        ok = write_and_run(cfg, page, text, args.color, args.font,
+                           args.size, args.function, escape=False)
+    else:
+        ok = send_command(cfg, page_write(page, text, args.color,
+                                          args.font, args.size,
+                                          args.function, escape=False))
+    return 0 if ok else 1
 
 
 class _Fields(dict):
@@ -309,10 +332,19 @@ def _basename(name):
     return n
 
 
-def now_playing_text(data, fmt):
-    """Render the configured format against the media callback payload.
-    Placeholders: {title} {artist} {album} {sequence} {media} {filename}
-    {type} {year} {genre} {track} {length} {seconds} {minutes}."""
+def fpp_system_info():
+    """Best-effort HostName/HostDescription from the local fppd API —
+    used by the {hostname}/{hostdesc} placeholders. 1.5s budget; empty
+    on any failure."""
+    st, info, _ = http_json("GET", FPP_API + "/api/system/info",
+                          timeout=1.5)
+    return info if st == 200 and isinstance(info, dict) else {}
+
+
+def np_field_map(cfg, data):
+    """All placeholders available in page text: the media callback's
+    TagLib fields, the plugin's Show Info settings, and FPP's host
+    identity."""
     fields = _Fields(
         title=data.get("title", ""),
         artist=data.get("artist", ""),
@@ -324,25 +356,201 @@ def now_playing_text(data, fmt):
         year=data.get("year", ""),
         genre=data.get("genre", ""),
         track=data.get("track", ""),
+        comment=data.get("comment", ""),
         length=data.get("length", ""),
         seconds=data.get("seconds", ""),
         minutes=data.get("minutes", ""),
+        bitrate=data.get("bitrate", ""),
+        sampleRate=data.get("sampleRate", ""),
+        channels=data.get("channels", ""),
+        showName=cfg.get("showName", ""),
+        showTagline=cfg.get("showTagline", ""),
+        showHost=cfg.get("showHost", ""),
+        showLocation=cfg.get("showLocation", ""),
+        showSchedule=cfg.get("showSchedule", ""),
+        showUrl=cfg.get("showUrl", ""),
     )
+    sysinfo = fpp_system_info()
+    fields["hostname"] = sysinfo.get("HostName", "")
+    fields["hostdesc"] = sysinfo.get("HostDescription", "")
+    return fields
+
+
+def render_template(fmt, fields):
+    """Substitute {placeholders}; collapse separators/brackets left
+    empty by missing fields. Never raises on a bad template."""
     try:
         out = fmt.format_map(fields)
     except (KeyError, IndexError, ValueError):
         out = fmt
-    # Collapse " - " separators and bracket pairs whose sides came out
-    # empty (e.g. "{artist} - {title} [{album}]" with no album/artist).
     out = re.sub(r"(\s*-\s*){2,}", " - ", out)
-    out = re.sub(r"[\[\(]\s*[\]\)]", "", out).strip(" -")
-    if not out.strip():
-        out = fields["filename"]
-    return out
+    return re.sub(r"[\[\(]\s*[\]\)]", "", out).strip(" -")
+
+
+def now_playing_text(data, fmt):
+    """Legacy single-format renderer (kept for callers/tests)."""
+    fields = np_field_map({}, data)
+    out = render_template(fmt, fields)
+    return out if out.strip() else fields["filename"]
+
+
+def np_pages(cfg):
+    """Ordered list of enabled now-playing page dicts.
+
+    npPages is a base64-encoded JSON array saved by the config page:
+      [{page,text,function,color,font,size,duration,enabled}, ...]
+    duration is the number of seconds the device queue holds that page
+    while rotating. Falls back to the legacy single-page np* settings
+    when npPages is unset or malformed."""
+    raw = (cfg.get("npPages") or "").strip()
+    if raw:
+        arr = None
+        try:
+            arr = json.loads(base64.b64decode(raw).decode("utf-8",
+                                                         "replace"))
+        except Exception:
+            log("npPages is not valid base64 JSON — ignoring")
+        if isinstance(arr, list):
+            pages, used = [], set()
+            for p in arr[:len(PAGES_MSG)]:
+                if not isinstance(p, dict) or not truthy(p.get("enabled", 1)):
+                    continue
+                letter = str(p.get("page") or "").strip()[:1].upper()
+                if letter not in PAGES_MSG or letter in used:
+                    continue  # reserved/invalid letter, or duplicate row
+                used.add(letter)
+                try:
+                    dur = int(p.get("duration") or 8)
+                except (TypeError, ValueError):
+                    dur = 8
+                pages.append({
+                    "page": letter,
+                    "text": str(p.get("text") or "")[:200],
+                    "function": str(p.get("function") or ""),
+                    "color": str(p.get("color") or ""),
+                    "font": str(p.get("font") or ""),
+                    "size": str(p.get("size") or ""),
+                    "duration": max(1, min(300, dur)),
+                })
+            if pages:
+                return pages
+    return [{"page": page_letter(cfg.get("npPage"), PAGES_MSG),
+             "text": cfg.get("npFormat") or "{title}",
+             "function": cfg.get("npFunction", ""),
+             "color": cfg.get("npColor", ""),
+             "font": cfg.get("npFont", ""),
+             "size": cfg.get("npSize", ""),
+             "duration": 8, "legacy": True}]
+
+
+def load_state():
+    try:
+        with open(STATE_PATH) as f:
+            st = json.load(f)
+        return st if isinstance(st, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(st):
+    try:
+        os.makedirs(DATADIR, exist_ok=True)
+        with open(STATE_PATH, "w") as f:
+            json.dump(st, f)
+    except OSError as e:
+        log("state save failed: %s" % e)
+
+
+def _queue_entries(pages):
+    return [{"command": "<RP%s>" % p["page"], "duration": p["duration"]}
+            for p in pages]
+
+
+def ensure_rotation(cfg, pages):
+    """Program the device message queue to cycle <RPx> for each
+    now-playing page — the sign-side engine that rotates seamlessly
+    with zero plugin involvement between media events.
+
+    The first takeover snapshots the user's queue (messages, runOnBoot,
+    queueActive) into the state file; release_rotation() puts it back.
+    Re-checked on every media event so a device reboot or an edited
+    page list self-heals — but a matching signature means NO writes,
+    which matters because /api/messages persists to the ESP32's flash."""
+    sig = "|".join("%s:%d" % (p["page"], p["duration"]) for p in pages)
+    st = load_state()
+    try:
+        url = base_url(cfg)
+    except ValueError as e:
+        log("rotation skipped: %s" % e)
+        return
+
+    want = _queue_entries(pages)
+    code, cur, _ = http_json("GET", url + "/api/messages")
+    if st.get("sig") == sig:
+        # Already programmed once — verify the device still holds it.
+        if code == 200 and isinstance(cur, dict):
+            if (cur.get("queueActive")
+                    and cur.get("messages") == want):
+                return
+        elif code == 0:
+            return  # unreachable; the page writes already logged it
+
+    if code != 200 or not isinstance(cur, dict):
+        log("rotation: could not read device queue")
+        return
+    if not st.get("snapshot"):
+        st["snapshot"] = {"messages": cur.get("messages") or [],
+                          "runOnBoot": bool(cur.get("runOnBoot")),
+                          "queueActive": bool(cur.get("queueActive"))}
+    code, _, err = http_json("POST", url + "/api/messages",
+                             {"messages": want,
+                              "runOnBoot": bool(cur.get("runOnBoot"))})
+    if code != 200:
+        log("rotation: queue program failed (%s)" % (err or code))
+        return
+    loop_action(cfg, "start")
+    st["sig"] = sig
+    save_state(st)
+    log("rotation: cycling %d pages (%s)"
+        % (len(pages), ", ".join(p["page"] for p in pages)))
+
+
+def release_rotation(cfg):
+    """Stop the rotation queue and (default) restore whatever the
+    device's message queue held before we borrowed it."""
+    st = load_state()
+    if not st.get("sig"):
+        return
+    loop_action(cfg, "stop")
+    snap = st.get("snapshot") or {}
+    msgs = snap.get("messages")
+    try:
+        url = base_url(cfg)
+    except ValueError:
+        url = None
+    if url and truthy(cfg.get("npRestoreQueue", "1")) \
+            and isinstance(msgs, list):
+        code, _, err = http_json("POST", url + "/api/messages",
+                                 {"messages": msgs,
+                                  "runOnBoot": bool(snap.get("runOnBoot"))})
+        if code != 200:
+            log("rotation: queue restore failed (%s)" % (err or code))
+        elif snap.get("queueActive"):
+            loop_action(cfg, "start")
+    elif url:
+        # Not restoring — still clear our <RPx> entries out of the
+        # device's saved queue so they don't come back on boot.
+        http_json("POST", url + "/api/messages",
+                  {"messages": [],
+                   "runOnBoot": bool(snap.get("runOnBoot"))})
+    save_state({})
+    log("rotation: released")
 
 
 def blank(cfg, page):
-    return send_command(cfg, "<P%s> <RP%s>" % (page, page))
+    if not send_command(cfg, "<P%s> " % page):
+        return False
+    return run_page(cfg, page)
 
 
 def stop_action(cfg):
@@ -352,16 +560,19 @@ def stop_action(cfg):
     if action == "blank":
         return blank(cfg, page)
     if action == "time":
-        return send_command(cfg, "<P%s><FT><RP%s>" % (page, page))
+        if not send_command(cfg, "<P%s><FT>" % page):
+            return False
+        return run_page(cfg, page)
     if action == "date":
-        return send_command(cfg, "<P%s><FD><RP%s>" % (page, page))
+        if not send_command(cfg, "<P%s><FD>" % page):
+            return False
+        return run_page(cfg, page)
     if action == "custom":
         text = cfg.get("stopText") or ""
         if not text.strip():
             return True
-        cmd = page_write(page, text, cfg.get("stopColor", ""),
-                         function=cfg.get("stopFunction", ""))
-        return send_command(cfg, cmd + "<RP%s>" % page)
+        return write_and_run(cfg, page, text, cfg.get("stopColor", ""),
+                             function=cfg.get("stopFunction", ""))
     if action == "queue":
         return loop_action(cfg, "start")
     return True  # "keep" — leave the sign as-is
@@ -371,33 +582,54 @@ def stop_action(cfg):
 
 
 def handle_media(cfg, data):
-    """fppd media event -> now-playing text on the configured page."""
+    """fppd media event -> render every configured page, then keep the
+    sign cycling them via the device queue (multi-page) or just run the
+    one page."""
     if not truthy(cfg.get("npEnabled")):
         return 0
     etype = str(data.get("type") or "").lower()
     if etype in ("", "pause", "event"):
         return 0
-    text = now_playing_text(data, cfg.get("npFormat") or "{title}")
-    if not text.strip():
+    pages = np_pages(cfg)
+    fields = np_field_map(cfg, data)
+
+    if len(pages) == 1:
+        p = pages[0]
+        text = render_template(p["text"], fields)
+        if p.get("legacy") and not text.strip():
+            text = fields["filename"]
+        # A stale rotation signature means a previous multi-page setup
+        # still owns the queue — hand it back first.
+        if load_state().get("sig"):
+            release_rotation(cfg)
+        write_and_run(cfg, p["page"], text, p["color"], p["font"],
+                      p["size"], p["function"])
         return 0
-    page = page_letter(cfg.get("npPage"), PAGES_MSG)
-    cmd = page_write(page, text, cfg.get("npColor", ""),
-                     cfg.get("npFont", ""), cfg.get("npSize", ""),
-                     cfg.get("npFunction", ""))
-    send_command(cfg, cmd + "<RP%s>" % page)
+
+    for p in pages:
+        text = render_template(p["text"], fields)
+        # Function-only pages (clock/date) need no text at all; a blank
+        # template on a plain page just holds its slot in the rotation.
+        send_command(cfg, page_write(p["page"], text, p["color"],
+                                     p["font"], p["size"],
+                                     p["function"]))
+    ensure_rotation(cfg, pages)
     return 0
 
 
 def handle_playlist(cfg, data):
-    """Playlist stop -> the configured stop action (time/blank/...)."""
+    """Playlist stop -> release the rotation, then the configured stop
+    action (time/blank/...)."""
     if str(data.get("Action") or "").lower() != "stop":
         return 0
+    release_rotation(cfg)
     stop_action(cfg)
     return 0
 
 
 def handle_lifecycle(cfg, phase):
     if phase == "shutdown":
+        release_rotation(cfg)
         stop_action(cfg)
     return 0
 
@@ -548,18 +780,21 @@ def main(argv):
 
     if args.action == "send":
         page = page_letter(args.page, PAGES_MSG)
-        cmd = page_write(page, args.text, args.color, args.font,
-                         args.size, args.function)
         if args.display_mode == "display":
-            cmd += "<RP%s>" % page
-        return 0 if send_command(cfg, cmd) else 1
+            ok = write_and_run(cfg, page, args.text, args.color,
+                               args.font, args.size, args.function)
+        else:
+            ok = send_command(cfg, page_write(page, args.text,
+                                              args.color, args.font,
+                                              args.size, args.function))
+        return 0 if ok else 1
 
     if args.action == "raw":
         return 0 if send_command(cfg, args.command) else 1
 
     if args.action == "run":
         page = page_letter(args.page, PAGES_ALL)
-        return 0 if send_command(cfg, "<RP%s>" % page) else 1
+        return 0 if run_page(cfg, page) else 1
 
     if args.action == "blank":
         page = page_letter(args.page, PAGES_MSG)
@@ -567,11 +802,13 @@ def main(argv):
 
     if args.action == "time":
         page = page_letter(args.page, PAGES_MSG)
-        return 0 if send_command(cfg, "<P%s><FT><RP%s>" % (page, page)) else 1
+        ok = send_command(cfg, "<P%s><FT>" % page) and run_page(cfg, page)
+        return 0 if ok else 1
 
     if args.action == "date":
         page = page_letter(args.page, PAGES_MSG)
-        return 0 if send_command(cfg, "<P%s><FD><RP%s>" % (page, page)) else 1
+        ok = send_command(cfg, "<P%s><FD>" % page) and run_page(cfg, page)
+        return 0 if ok else 1
 
     if args.action == "queue":
         return 0 if loop_action(cfg, args.direction) else 1

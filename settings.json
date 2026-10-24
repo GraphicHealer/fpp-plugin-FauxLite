@@ -13,12 +13,19 @@
             "level": 0,
             "settings": [
                 "npEnabled",
-                "npPage",
-                "npFormat",
-                "npFunction",
-                "npColor",
-                "npFont",
-                "npSize"
+                "npRestoreQueue"
+            ]
+        },
+        "FauxLiteShowInfo": {
+            "description": "Show Info (used by the {show*} placeholders)",
+            "level": 0,
+            "settings": [
+                "showName",
+                "showTagline",
+                "showHost",
+                "showLocation",
+                "showSchedule",
+                "showUrl"
             ]
         },
         "FauxLiteShowStopped": {
@@ -61,7 +68,7 @@
         "npEnabled": {
             "name": "npEnabled",
             "description": "Show Now Playing",
-            "tip": "Updates the sign with the current song/sequence each time a media entry starts.",
+            "tip": "Updates the sign each time a media entry starts, using the Now Playing Pages list below. One page = a single display; two or more rotate via the device's message queue.",
             "restart": 0,
             "reboot": 0,
             "level": 0,
@@ -70,142 +77,89 @@
             "uncheckedValue": "0",
             "default": "0"
         },
-        "npPage": {
-            "name": "npPage",
-            "description": "Sign Page",
-            "tip": "Page the now-playing text is written to (Y and Z are reserved for one-shot messages).",
+        "npRestoreQueue": {
+            "name": "npRestoreQueue",
+            "description": "Restore Device Queue on Stop",
+            "tip": "Multi-page rotations borrow the device's message queue. When the show stops, the queue that was there before is put back (and restarted if it was running).",
             "restart": 0,
             "reboot": 0,
             "level": 0,
-            "type": "select",
-            "default": "A",
-            "options": {
-                "A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F",
-                "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L",
-                "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R",
-                "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"
-            }
+            "type": "checkbox",
+            "checkedValue": "1",
+            "uncheckedValue": "0",
+            "default": "1"
         },
-        "npFormat": {
-            "name": "npFormat",
-            "description": "Message Format",
-            "tip": "Placeholders: {title} {artist} {album} {sequence} {media} {filename} {type}. e.g. \"{artist} - {title}\". Blank result falls back to the filename.",
+        "showName": {
+            "name": "showName",
+            "description": "Show Name",
+            "tip": "Available in page text as {showName} — e.g. \"Jones Light Show\".",
+            "restart": 0,
+            "reboot": 0,
+            "level": 0,
+            "type": "text",
+            "size": 40,
+            "maxlength": 120,
+            "default": ""
+        },
+        "showTagline": {
+            "name": "showTagline",
+            "description": "Tagline",
+            "tip": "Available as {showTagline}.",
+            "restart": 0,
+            "reboot": 0,
+            "level": 0,
+            "type": "text",
+            "size": 40,
+            "maxlength": 120,
+            "default": ""
+        },
+        "showHost": {
+            "name": "showHost",
+            "description": "Hosted By",
+            "tip": "Available as {showHost}.",
+            "restart": 0,
+            "reboot": 0,
+            "level": 0,
+            "type": "text",
+            "size": 40,
+            "maxlength": 120,
+            "default": ""
+        },
+        "showLocation": {
+            "name": "showLocation",
+            "description": "Location",
+            "tip": "Available as {showLocation}.",
+            "restart": 0,
+            "reboot": 0,
+            "level": 0,
+            "type": "text",
+            "size": 40,
+            "maxlength": 120,
+            "default": ""
+        },
+        "showSchedule": {
+            "name": "showSchedule",
+            "description": "Schedule",
+            "tip": "Available as {showSchedule} — e.g. \"Nightly 6-10pm\".",
+            "restart": 0,
+            "reboot": 0,
+            "level": 0,
+            "type": "text",
+            "size": 40,
+            "maxlength": 120,
+            "default": ""
+        },
+        "showUrl": {
+            "name": "showUrl",
+            "description": "Public URL",
+            "tip": "Available as {showUrl}.",
             "restart": 0,
             "reboot": 0,
             "level": 0,
             "type": "text",
             "size": 40,
             "maxlength": 200,
-            "default": "{title}"
-        },
-        "npFunction": {
-            "name": "npFunction",
-            "description": "Effect",
-            "tip": "How the text is drawn on the sign.",
-            "restart": 0,
-            "reboot": 0,
-            "level": 0,
-            "type": "select",
-            "default": "",
-            "options": {
-                "Device default": "",
-                "Auto": "FA",
-                "Open": "FB",
-                "Cover": "FC",
-                "Date": "FD",
-                "Cycling": "FE",
-                "Close right": "FF",
-                "Close left": "FG",
-                "Close both": "FH",
-                "Scroll up": "FI",
-                "Scroll down": "FJ",
-                "Overlap": "FK",
-                "Stacking": "FL",
-                "Comic 1": "FM",
-                "Comic 2": "FN",
-                "Pause": "FP",
-                "Appear": "FQ",
-                "Random": "FR",
-                "Shift left": "FS",
-                "Magic": "FU",
-                "Thank you": "FV",
-                "Welcome": "FW"
-            }
-        },
-        "npColor": {
-            "name": "npColor",
-            "description": "Color",
-            "tip": "Color used for the now-playing text.",
-            "restart": 0,
-            "reboot": 0,
-            "level": 0,
-            "type": "select",
-            "default": "",
-            "options": {
-                "Device default": "",
-                "Dim red": "CA",
-                "Red": "CB",
-                "Bright red": "CC",
-                "Orange": "CD",
-                "Bright orange": "CE",
-                "Light yellow": "CF",
-                "Yellow": "CG",
-                "Bright yellow": "CH",
-                "Lime": "CI",
-                "Dim lime": "CJ",
-                "Bright lime": "CK",
-                "Bright green": "CL",
-                "Green": "CM",
-                "Dim green": "CN",
-                "Yellow/green/red": "CO",
-                "Rainbow": "CP",
-                "Red/green 3D": "CQ",
-                "Red/yellow 3D": "CR",
-                "Green/red 3D": "CS",
-                "Green/yellow 3D": "CT",
-                "Green on red": "CU",
-                "Red on green": "CV",
-                "Orange on green 3D": "CW",
-                "Lime on red 3D": "CX",
-                "Green on red 3D (alt)": "CY",
-                "Red on green 3D (alt)": "CZ"
-            }
-        },
-        "npFont": {
-            "name": "npFont",
-            "description": "Font",
-            "tip": "Font used for the now-playing text.",
-            "restart": 0,
-            "reboot": 0,
-            "level": 0,
-            "type": "select",
-            "default": "",
-            "options": {
-                "Device default": "",
-                "Normal": "SA",
-                "Bold": "SB",
-                "Italic": "SC",
-                "Bold italic": "SD",
-                "Flash normal": "SE",
-                "Flash bold": "SF",
-                "Flash italic": "SG",
-                "Flash bold italic": "SH"
-            }
-        },
-        "npSize": {
-            "name": "npSize",
-            "description": "Character Size",
-            "tip": "4x7 is smaller and fits more text.",
-            "restart": 0,
-            "reboot": 0,
-            "level": 0,
-            "type": "select",
-            "default": "",
-            "options": {
-                "Device default": "",
-                "5x7": "SI",
-                "4x7 (smaller)": "SJ"
-            }
+            "default": ""
         },
         "stopAction": {
             "name": "stopAction",

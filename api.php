@@ -91,8 +91,11 @@ function fpppluginFauxLiteSend() {
         isset($in['font']) ? $in['font'] : '',
         isset($in['size']) ? $in['size'] : '',
         isset($in['function']) ? $in['function'] : '');
-    if (!empty($in['runPage'])) $cmd .= '<RP' . $page . '>';
     list($ok, $d) = fl_send($cfg, $cmd);
+    // <RPx> is a standalone command — appending it to the page write
+    // makes it literal text on the sign.
+    if ($ok && !empty($in['runPage']))
+        list($ok, $d) = fl_send($cfg, '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
 
@@ -117,7 +120,8 @@ function fpppluginFauxLiteRunPage() {
 function fpppluginFauxLiteBlank() {
     $in = _flBody();
     $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '> <RP' . $page . '>');
+    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '> ');
+    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
 
@@ -125,7 +129,8 @@ function fpppluginFauxLiteBlank() {
 function fpppluginFauxLiteTime() {
     $in = _flBody();
     $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FT><RP' . $page . '>');
+    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FT>');
+    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
 
@@ -133,7 +138,8 @@ function fpppluginFauxLiteTime() {
 function fpppluginFauxLiteDate() {
     $in = _flBody();
     $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FD><RP' . $page . '>');
+    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FD>');
+    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
 

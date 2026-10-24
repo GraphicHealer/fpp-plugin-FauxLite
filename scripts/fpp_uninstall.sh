@@ -2,9 +2,11 @@
 
 # fpp-plugin-FauxLite uninstall script.
 # This runs BEFORE the plugin directory is deleted — clean up everything
-# we created outside the plugin directory (just our plugin settings file;
-# the single plugin log is left for FPP to rotate/purge as usual).
+# we created outside the plugin directory (the plugin settings file and
+# the plugindata state file; the single plugin log is left for FPP to
+# rotate/purge as usual).
 
 . ${FPPDIR}/scripts/common
 
 rm -f "${MEDIADIR}/config/plugin.fpp-plugin-FauxLite"
+rm -rf "${MEDIADIR}/plugindata/fpp-plugin-FauxLite"
