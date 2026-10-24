@@ -47,12 +47,13 @@ message queue, and quick-send controls.
 
 ## Now Playing pages
 
-The page editor builds the sign's rotation: each row is one page with its
-own text, effect, color, font, size and on-screen **seconds**. One row =
-a single static page; two or more rows rotate seamlessly, driven by the
-device's own message queue — the plugin loads `<RPx>` entries into the
-queue and starts the loop, so the sign cycles on its own and mid-song
-metadata updates just rewrite the page contents underneath.
+The page editor builds the sign's rotation: each row is one message with
+its own text, effect, color, font, size and on-screen **seconds**. One
+row = a single static page; two or more rows rotate seamlessly, driven by
+the device's own message queue — the plugin loads each rendered message
+into the queue (the same format the device's Messages page uses,
+e.g. `<CG><FQ>Hello World`) and starts the loop, so the sign cycles on
+its own. New song text lands in the queue on the next media event.
 
 Example — `Jones Light Show` → `Now Playing:` → artist → title:
 

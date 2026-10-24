@@ -221,13 +221,10 @@ def sanitize(text):
     return t
 
 
-def page_write(page, text, color="", font="", size="", function="",
-               escape=True):
-    """Build '<P?><F?><C?><S?>text ' — the trailing space keeps a short
-    message from tripping the sign's demo mode. escape=False is for
-    text that already went through sanitize() + field injection (the
-    countdown writer), which legitimately contains '<Fx>' codes."""
-    cmd = "<P%s>" % page
+def page_attrs(function="", color="", font="", size=""):
+    """'<F?><C?><S?><S?>' — the attribute codes that lead page content,
+    in effect/color/font/size order."""
+    cmd = ""
     f = resolve(function, FUNCTIONS)
     c = resolve(color, COLORS)
     fo = resolve(font, FONTS)
@@ -240,6 +237,16 @@ def page_write(page, text, color="", font="", size="", function="",
         cmd += "<%s>" % fo
     if s:
         cmd += "<%s>" % s
+    return cmd
+
+
+def page_write(page, text, color="", font="", size="", function="",
+               escape=True):
+    """Build '<P?><F?><C?><S?>text ' — the trailing space keeps a short
+    message from tripping the sign's demo mode. escape=False is for
+    text that already went through sanitize() + field injection (the
+    countdown writer), which legitimately contains '<Fx>' codes."""
+    cmd = "<P%s>" % page + page_attrs(function, color, font, size)
     return cmd + (sanitize(text) if escape else text) + " "
 
 
@@ -461,22 +468,31 @@ def save_state(st):
         log("state save failed: %s" % e)
 
 
-def _queue_entries(pages):
-    return [{"command": "<RP%s>" % p["page"], "duration": p["duration"]}
-            for p in pages]
+def queue_command(p, text):
+    """A device-queue entry's command: attribute codes + text, with NO
+    <Px> selector and NO <RPx>. The firmware wraps each queued command
+    in '<PA>' before sending (sendToProlite), so every entry writes and
+    displays page A — exactly how the device's own Messages page stores
+    entries like '<CG><FQ>Hello World'."""
+    return (page_attrs(p["function"], p["color"], p["font"], p["size"])
+            + sanitize(text) + " ")
 
 
-def ensure_rotation(cfg, pages):
-    """Program the device message queue to cycle <RPx> for each
-    now-playing page — the sign-side engine that rotates seamlessly
-    with zero plugin involvement between media events.
+def ensure_rotation(cfg, rendered):
+    """Program the device message queue to cycle the rendered page
+    commands — the sign-side engine that rotates seamlessly with zero
+    plugin involvement between media events. `rendered` is a list of
+    (page_dict, text) pairs; entries become
+    {command: '<attrs>text ', duration: secs}.
 
     The first takeover snapshots the user's queue (messages, runOnBoot,
     queueActive) into the state file; release_rotation() puts it back.
-    Re-checked on every media event so a device reboot or an edited
-    page list self-heals — but a matching signature means NO writes,
-    which matters because /api/messages persists to the ESP32's flash."""
-    sig = "|".join("%s:%d" % (p["page"], p["duration"]) for p in pages)
+    The device queue is re-verified every media event and only
+    re-POSTed when the wanted entries differ — /api/messages persists
+    to the ESP32's flash prefs, so needless rewrites are avoided (a new
+    song's changed text does legitimately trigger one rewrite)."""
+    want = [{"command": queue_command(p, text), "duration": p["duration"]}
+            for p, text in rendered]
     st = load_state()
     try:
         url = base_url(cfg)
@@ -484,17 +500,13 @@ def ensure_rotation(cfg, pages):
         log("rotation skipped: %s" % e)
         return
 
-    want = _queue_entries(pages)
     code, cur, _ = http_json("GET", url + "/api/messages")
-    if st.get("sig") == sig:
-        # Already programmed once — verify the device still holds it.
-        if code == 200 and isinstance(cur, dict):
-            if (cur.get("queueActive")
-                    and cur.get("messages") == want):
-                return
-        elif code == 0:
-            return  # unreachable; the page writes already logged it
-
+    if code == 200 and isinstance(cur, dict) \
+            and cur.get("queueActive") and cur.get("messages") == want \
+            and st.get("sig"):
+        return  # device already cycling exactly what we want
+    if code == 0:
+        return  # unreachable; the page writes already logged it
     if code != 200 or not isinstance(cur, dict):
         log("rotation: could not read device queue")
         return
@@ -509,10 +521,10 @@ def ensure_rotation(cfg, pages):
         log("rotation: queue program failed (%s)" % (err or code))
         return
     loop_action(cfg, "start")
-    st["sig"] = sig
+    st["sig"] = json.dumps(want)
     save_state(st)
-    log("rotation: cycling %d pages (%s)"
-        % (len(pages), ", ".join(p["page"] for p in pages)))
+    log("rotation: cycling %d pages on A (%s)"
+        % (len(want), ", ".join(p["page"] for p, _ in rendered)))
 
 
 def release_rotation(cfg):
@@ -592,10 +604,10 @@ def handle_media(cfg, data):
         return 0
     pages = np_pages(cfg)
     fields = np_field_map(cfg, data)
+    rendered = [(p, render_template(p["text"], fields)) for p in pages]
 
     if len(pages) == 1:
-        p = pages[0]
-        text = render_template(p["text"], fields)
+        p, text = rendered[0]
         if p.get("legacy") and not text.strip():
             text = fields["filename"]
         # A stale rotation signature means a previous multi-page setup
@@ -606,14 +618,16 @@ def handle_media(cfg, data):
                       p["size"], p["function"])
         return 0
 
-    for p in pages:
-        text = render_template(p["text"], fields)
-        # Function-only pages (clock/date) need no text at all; a blank
-        # template on a plain page just holds its slot in the rotation.
+    # Store each row's content on its own sign page (keeps it reachable
+    # via Run Page / countdown end-pages / one-shot restores), then let
+    # the device queue display-cycle the rendered commands on page A.
+    # Function-only rows (clock/date) need no text; an empty render just
+    # holds its slot in the rotation.
+    for p, text in rendered:
         send_command(cfg, page_write(p["page"], text, p["color"],
                                      p["font"], p["size"],
                                      p["function"]))
-    ensure_rotation(cfg, pages)
+    ensure_rotation(cfg, rendered)
     return 0
 
 

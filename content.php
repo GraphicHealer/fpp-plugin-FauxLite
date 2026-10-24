@@ -103,11 +103,15 @@ PrintSettingGroup('FauxLiteNowPlaying', '', '', 1, $pluginName);
 <fieldset>
 <legend>Now Playing Pages</legend>
 <p class="text-muted">
-Each row is a sign page in the rotation. With one row the sign just shows
-that page; with two or more, the device's own message queue cycles them
-for the page's <b>Secs</b> each — no flicker, and mid-song tag updates
-don't restart the cycle. Leave the list empty for the simple default
-("{title}" on page A). Text placeholders:
+Each row is one entry in the rotation. With one row the sign just shows
+that page; with two or more, the device's own message queue cycles the
+rendered messages — each displayed for its <b>Secs</b> — which is how the
+device natively rotates content (the queue writes each entry to page A
+when it fires, just like entries added on the device's Messages page).
+The <b>Page</b> column picks which sign page the content is also stored
+on — useful for Run Page commands and one-shot restores. Mid-song tag
+changes refresh the next queue update. Leave the list empty for the
+simple default ("{title}" on page A). Text placeholders:
 <b>{title} {artist} {album} {sequence} {filename} {type} {year} {genre}
 {track} {length} {seconds} {minutes} {bitrate}</b>, plus the Show Info
 fields <b>{showName} {showTagline} {showHost} {showLocation}
