@@ -113,8 +113,9 @@ placeholders:
 <b>{title} {artist} {album} {sequence} {filename} {type} {year} {genre}
 {track} {length} {seconds} {minutes} {bitrate}</b>, plus the Show Info
 fields <b>{showName} {showTagline} {showHost} {showLocation}
-{showSchedule} {showUrl}</b> and <b>{hostname} {hostdesc}</b> from FPP
-itself. Example rotation: <i>{showName}</i> &rarr; <i>Now Playing:</i>
+{showSchedule} {showUrl}</b>, <b>{hostname} {hostdesc}</b> from FPP
+itself, and live sign inserts <b>{time}</b> (sign clock) and
+<b>{date}</b> (sign date). Example rotation: <i>{showName}</i> &rarr; <i>Now Playing:</i>
 &rarr; <i>{artist}</i> &rarr; <i>{title}</i>. Pages Y/Z stay reserved
 for one-shot messages.
 </p>
@@ -149,11 +150,10 @@ for one-shot messages.
 var FL_PAGES = <?php echo $npPagesJson; ?>;
 var FL_PAGES_SAVED = <?php echo $npPagesJson !== '[]' ? 'true' : 'false'; ?>;
 var FL_EFFECTS = {'FS':'Shift left','FA':'Auto','FB':'Open','FC':'Cover',
-  'FD':'Date','FE':'Cycling','FF':'Close right','FG':'Close left',
+  'FE':'Cycling','FF':'Close right','FG':'Close left',
   'FH':'Close both','FI':'Scroll up','FJ':'Scroll down','FK':'Overlap',
-  'FL':'Stacking','FM':'Comic 1','FN':'Comic 2','FP':'Pause','FQ':'Appear',
-  'FR':'Random','FS':'Shift left','FT':'Time','FU':'Magic',
-  'FV':'Thank you','FW':'Welcome'};
+  'FL':'Stacking','FM':'Comic 1','FN':'Comic 2','FQ':'Appear',
+  'FR':'Random','FU':'Magic','FV':'Thank you','FW':'Welcome'};
 var FL_COLORS = {'CP':'Rainbow','CA':'Dim red','CB':'Red',
   'CC':'Bright red','CD':'Orange','CE':'Bright orange',
   'CF':'Light yellow','CG':'Yellow','CH':'Bright yellow','CI':'Lime',
@@ -239,7 +239,8 @@ function flPreview() {
         cmd += String(p.text || '')
             .replace(/[\x00-\x1f<>]/g, '')
             .replace(/[^\x20-\x7e]/g, '')
-            .replace(/[ \t]+/g, ' ').trim();
+            .replace(/[ \t]+/g, ' ').trim()
+            .replace(/\{time\}/g, '<FT>').replace(/\{date\}/g, '<FD>');
         cmd += '<FP>'.repeat(Math.floor((p.duration + 1) / 2));
     });
     out.textContent = cmd + '\nthen: <RP' + rot + '>';

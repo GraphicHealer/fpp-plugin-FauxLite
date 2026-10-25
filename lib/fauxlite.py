@@ -413,6 +413,10 @@ def np_field_map(cfg, data):
         showLocation=cfg.get("showLocation", ""),
         showSchedule=cfg.get("showSchedule", ""),
         showUrl=cfg.get("showUrl", ""),
+        # Live sign inserts — kept literal through format_map, then
+        # injected post-sanitize by segment_text() as <FT>/<FD>.
+        time="{time}",
+        date="{date}",
     )
     sysinfo = fpp_system_info()
     fields["hostname"] = sysinfo.get("HostName", "")
@@ -483,6 +487,15 @@ def np_pages(cfg):
              "duration": 8, "legacy": True}]
 
 
+def segment_text(text):
+    """sanitize() then inject the live sign inserts: {time}->{FT} shows
+    the sign's clock, {date}->{FD} its date — these are inline inserts,
+    not transitions, which is why they live in text rather than the
+    Effect dropdown."""
+    t = sanitize(text)
+    return t.replace("{time}", "<FT>").replace("{date}", "<FD>")
+
+
 def combined_page(page, rendered):
     """One sign page holding every row's message, separated by <FP>
     pause tags — the same layout the firmware's own queue compiler
@@ -501,7 +514,7 @@ def combined_page(page, rendered):
         fx = resolve(p["function"], FUNCTIONS) or "FA"
         cmd += "<%s>" % fx
         cmd += page_attrs("", p["color"], p["font"], p["size"])
-        cmd += sanitize(text)
+        cmd += segment_text(text)
         cmd += "<FP>" * ((p["duration"] + 1) // 2)
     return cmd
 
@@ -582,8 +595,8 @@ def handle_media(cfg, data):
         p, text = rendered[0]
         if not text.strip():
             text = fields["filename"]
-        write_and_run(cfg, p["page"], text, p["color"], p["font"],
-                      p["size"], p["function"])
+        write_and_run(cfg, p["page"], segment_text(text), p["color"],
+                      p["font"], p["size"], p["function"], escape=False)
         return 0
 
     # Configured rows all live on the one rotation page as
