@@ -104,14 +104,15 @@ PrintSettingGroup('FauxLiteNowPlaying', '', '', 1, $pluginName);
 <legend>Now Playing Pages</legend>
 <p class="text-muted">
 Each row is one entry in the rotation. With one row the sign just shows
-that page; with two or more, the device's own message queue cycles the
-rendered messages — each displayed for its <b>Secs</b> — which is how the
-device natively rotates content (the queue writes each entry to page A
-when it fires, just like entries added on the device's Messages page).
-The <b>Page</b> column picks which sign page the content is also stored
-on — useful for Run Page commands and one-shot restores. Mid-song tag
-changes refresh the next queue update. Leave the list empty for the
-simple default ("{title}" on page A). Text placeholders:
+that page; with two or more, all rows are combined onto the
+<b>Rotation Page</b> — each message displays, then holds for its
+<b>Secs</b> (in ~2s steps, the same pause model the device's own queues
+use) before the next — so the sign cycles them seamlessly with nothing
+else involved. The <b>Page</b> column picks which sign page each row's
+content is also stored on — useful for Run Page commands and one-shot
+restores. Pages A/B are owned by the device's own queues, Y/Z by
+one-shot and boot messages — rows live on C&ndash;X. Leave the list
+empty for the simple default ("{title}" on page C). Text placeholders:
 <b>{title} {artist} {album} {sequence} {filename} {type} {year} {genre}
 {track} {length} {seconds} {minutes} {bitrate}</b>, plus the Show Info
 fields <b>{showName} {showTagline} {showHost} {showLocation}
@@ -163,7 +164,7 @@ var FL_FONTS = {'':'device default','SA':'Normal','SB':'Bold',
   'SC':'Italic','SD':'Bold italic','SE':'Flash normal','SF':'Flash bold',
   'SG':'Flash italic','SH':'Flash bold italic'};
 var FL_SIZES = {'':'device default','SI':'5x7','SJ':'4x7 (smaller)'};
-var FL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+var FL_LETTERS = 'CDEFGHIJKLMNOPQRSTUVWX'.split('');
 
 function flSelect(opts, val, cls) {
     var h = '<select' + (cls ? ' class="' + cls + '"' : '') + '>';
@@ -224,7 +225,7 @@ function flAddPage() {
     flPullRows();
     var used = {};
     FL_PAGES.forEach(function(p) { used[p.page] = 1; });
-    var letter = 'A';
+    var letter = 'C';
     for (var i = 0; i < FL_LETTERS.length; i++)
         if (!used[FL_LETTERS[i]]) { letter = FL_LETTERS[i]; break; }
     FL_PAGES.push({page: letter, text: '', function: 'FA', color: '',
@@ -247,7 +248,7 @@ function flSavePages() {
 // Seed one sensible default row so the editor isn't empty on first use
 // (it only persists once Save Pages is clicked).
 if (!FL_PAGES_SAVED && FL_PAGES.length === 0)
-    FL_PAGES = [{page: 'A', text: '{artist} - {title}', function: 'FA',
+    FL_PAGES = [{page: 'C', text: '{artist} - {title}', function: 'FA',
                  color: '', font: '', size: '', duration: 8, enabled: 1}];
 flRenderPages();
 </script>

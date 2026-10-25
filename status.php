@@ -60,13 +60,29 @@ $api = '/api/plugin/' . $GLOBALS['fl_plugin'];
 ?></td></tr>
 <?php endif; ?>
 <?php if (is_array($queue)): ?>
-<tr><td><b>Message queue</b></td><td><?php
-    echo fl_h(isset($queue['queueSize']) ? $queue['queueSize'] : 0) . ' message(s) &mdash; ';
-    echo !empty($queue['queueActive'])
-        ? '<span class="text-success">running</span>'
-        : '<span class="text-muted">stopped</span>';
-    echo !empty($queue['runOnBoot']) ? ' <small class="text-muted">(runs on boot)</small>' : '';
+<tr><td><b>Message queues</b></td><td><?php
+    $qs = isset($queue['queues']) && is_array($queue['queues'])
+        ? $queue['queues'] : array();
+    echo count($qs) . ' queue(s)';
+    $aq = isset($queue['activeQueue']) ? intval($queue['activeQueue']) : -1;
+    if ($aq >= 0 && $aq < count($qs)) {
+        $nm = isset($qs[$aq]['name']) ? $qs[$aq]['name'] : '#' . $aq;
+        echo ' &mdash; <span class="text-success">running: ' . fl_h($nm) . '</span>';
+    } else {
+        echo ' &mdash; <span class="text-muted">stopped</span>';
+    }
+    $bq = isset($queue['bootQueue']) ? intval($queue['bootQueue']) : -1;
+    if ($bq >= 0 && $bq < count($qs))
+        echo ' <small class="text-muted">(boot: '
+            . fl_h(isset($qs[$bq]['name']) ? $qs[$bq]['name'] : '#' . $bq)
+            . ')</small>';
 ?></td></tr>
+<?php if (!empty($queue['timeSynced']) && isset($queue['time'])): ?>
+<tr><td><b>Device clock</b></td><td><?php
+    echo fl_h($queue['time']);
+    if (isset($queue['timeZone'])) echo ' <small class="text-muted">(' . fl_h($queue['timeZone']) . ')</small>';
+?></td></tr>
+<?php endif; ?>
 <?php endif; ?>
 </table>
 
@@ -81,7 +97,7 @@ $api = '/api/plugin/' . $GLOBALS['fl_plugin'];
     <div class="col-md-2">
         <label for="flPage">Page</label>
         <select id="flPage" class="form-control">
-<?php foreach (range('A', 'X') as $p): ?>
+<?php foreach (range('C', 'X') as $p): ?>
             <option value="<?php echo $p; ?>"><?php echo $p; ?></option>
 <?php endforeach; ?>
         </select>
@@ -107,9 +123,9 @@ $api = '/api/plugin/' . $GLOBALS['fl_plugin'];
 
 <fieldset>
 <legend>Display controls</legend>
-<button class="buttons" onclick="flPost('blank', {page: 'A'})">Blank</button>
-<button class="buttons" onclick="flPost('time', {page: 'A'})">Show time</button>
-<button class="buttons" onclick="flPost('date', {page: 'A'})">Show date</button>
+<button class="buttons" onclick="flPost('blank', {page: 'C'})">Blank</button>
+<button class="buttons" onclick="flPost('time', {page: 'C'})">Show time</button>
+<button class="buttons" onclick="flPost('date', {page: 'C'})">Show date</button>
 <button class="buttons" onclick="flPost('queue', {action: 'start'})">Queue start</button>
 <button class="buttons" onclick="flPost('queue', {action: 'stop'})">Queue stop</button>
 </fieldset>

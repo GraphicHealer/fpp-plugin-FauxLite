@@ -1,123 +1,660 @@
 [
-{ "name": "FauxLite - Send Message",
-  "description": "Write a text message to a sign page, optionally switching the display to that page.",
-  "script": "send_message.sh",
-  "args": [
-    { "name": "message", "type": "string", "description": "Message text",
-      "placeholder": "Text to display" },
-    { "name": "page", "type": "string", "description": "Page (A-X; Y and Z are reserved for one-shot messages)", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} },
-    { "name": "color", "type": "string", "description": "Color", "default": "", "optional": true,
-      "contents": {"Device default": "", "Dim red": "CA", "Red": "CB", "Bright red": "CC", "Orange": "CD", "Bright orange": "CE", "Light yellow": "CF", "Yellow": "CG", "Bright yellow": "CH", "Lime": "CI", "Dim lime": "CJ", "Bright lime": "CK", "Bright green": "CL", "Green": "CM", "Dim green": "CN", "Yellow/green/red": "CO", "Rainbow": "CP", "Red/green 3D": "CQ", "Red/yellow 3D": "CR", "Green/red 3D": "CS", "Green/yellow 3D": "CT", "Green on red": "CU", "Red on green": "CV", "Orange on green 3D": "CW", "Lime on red 3D": "CX", "Green on red 3D (alt)": "CY", "Red on green 3D (alt)": "CZ"} },
-    { "name": "font", "type": "string", "description": "Font", "default": "", "optional": true,
-      "contents": {"Device default": "", "Normal": "SA", "Bold": "SB", "Italic": "SC", "Bold italic": "SD", "Flash normal": "SE", "Flash bold": "SF", "Flash italic": "SG", "Flash bold italic": "SH"} },
-    { "name": "size", "type": "string", "description": "Character size", "default": "", "optional": true,
-      "contents": {"Device default": "", "5x7": "SI", "4x7 (smaller)": "SJ"} },
-    { "name": "function", "type": "string", "description": "Display effect", "default": "", "optional": true,
-      "contents": {"Device default": "", "Auto": "FA", "Open": "FB", "Cover": "FC", "Date": "FD", "Cycling": "FE", "Close right": "FF", "Close left": "FG", "Close both": "FH", "Scroll up": "FI", "Scroll down": "FJ", "Overlap": "FK", "Stacking": "FL", "Comic 1": "FM", "Comic 2": "FN", "Beep": "FO", "Pause": "FP", "Appear": "FQ", "Random": "FR", "Shift left": "FS", "Time": "FT", "Magic": "FU", "Thank you": "FV", "Welcome": "FW"} },
-    { "name": "displayMode", "type": "string", "description": "After writing", "default": "display",
-      "contents": {"Show this page now": "display", "Just store it in the page": "store"} }
-  ]
-},
-{ "name": "FauxLite - One-Shot Message",
-  "description": "Flash a temporary message over the current display. Uses reserved pages Y and Z, then returns to what was showing.",
-  "script": "oneshot.sh",
-  "args": [
-    { "name": "text", "type": "string", "description": "Message text",
-      "placeholder": "Text to display briefly" },
-    { "name": "repeat", "type": "int", "description": "Times to show it", "min": 1, "max": 99, "default": "1" },
-    { "name": "color", "type": "string", "description": "Color", "default": "", "optional": true,
-      "contents": {"Device default": "", "Dim red": "CA", "Red": "CB", "Bright red": "CC", "Orange": "CD", "Bright orange": "CE", "Light yellow": "CF", "Yellow": "CG", "Bright yellow": "CH", "Lime": "CI", "Dim lime": "CJ", "Bright lime": "CK", "Bright green": "CL", "Green": "CM", "Dim green": "CN", "Yellow/green/red": "CO", "Rainbow": "CP", "Red/green 3D": "CQ", "Red/yellow 3D": "CR", "Green/red 3D": "CS", "Green/yellow 3D": "CT", "Green on red": "CU", "Red on green": "CV", "Orange on green 3D": "CW", "Lime on red 3D": "CX", "Green on red 3D (alt)": "CY", "Red on green 3D (alt)": "CZ"} },
-    { "name": "font", "type": "string", "description": "Font", "default": "", "optional": true,
-      "contents": {"Device default": "", "Normal": "SA", "Bold": "SB", "Italic": "SC", "Bold italic": "SD", "Flash normal": "SE", "Flash bold": "SF", "Flash italic": "SG", "Flash bold italic": "SH"} },
-    { "name": "size", "type": "string", "description": "Character size", "default": "", "optional": true,
-      "contents": {"Device default": "", "5x7": "SI", "4x7 (smaller)": "SJ"} },
-    { "name": "function", "type": "string", "description": "Display effect", "default": "", "optional": true,
-      "contents": {"Device default": "", "Auto": "FA", "Open": "FB", "Cover": "FC", "Cycling": "FE", "Close right": "FF", "Close left": "FG", "Close both": "FH", "Scroll up": "FI", "Scroll down": "FJ", "Overlap": "FK", "Stacking": "FL", "Comic 1": "FM", "Comic 2": "FN", "Appear": "FQ", "Random": "FR", "Shift left": "FS", "Magic": "FU"} },
-    { "name": "beep", "type": "string", "description": "Beep first", "default": "no",
-      "contents": {"No": "no", "Yes": "yes"} }
-  ]
-},
-{ "name": "FauxLite - Run Page",
-  "description": "Switch the display to a stored page (A-Z).",
-  "script": "run_page.sh",
-  "args": [
-    { "name": "page", "type": "string", "description": "Page", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X", "Y": "Y", "Z": "Z"} }
-  ]
-},
-{ "name": "FauxLite - Blank Display",
-  "description": "Blank the sign by showing an empty page.",
-  "script": "blank.sh",
-  "args": [
-    { "name": "page", "type": "string", "description": "Page to blank on", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} }
-  ]
-},
-{ "name": "FauxLite - Show Time",
-  "description": "Display the sign's built-in clock.",
-  "script": "show_time.sh",
-  "args": [
-    { "name": "page", "type": "string", "description": "Page", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} }
-  ]
-},
-{ "name": "FauxLite - Show Date",
-  "description": "Display the sign's built-in date.",
-  "script": "show_date.sh",
-  "args": [
-    { "name": "page", "type": "string", "description": "Page", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} }
-  ]
-},
-{ "name": "FauxLite - Beep",
-  "description": "Beep the sign's speaker. Uses reserved pages Y and Z.",
-  "script": "beep.sh",
-  "args": [
-    { "name": "count", "type": "int", "description": "Number of beeps", "min": 1, "max": 99, "default": "1" }
-  ]
-},
-{ "name": "FauxLite - Start Message Queue",
-  "description": "Start the message queue configured on the FauxLite device itself (its own /api/loop/start).",
-  "script": "queue_start.sh",
-  "args": []
-},
-{ "name": "FauxLite - Stop Message Queue",
-  "description": "Stop the device's message queue (its own /api/loop/stop).",
-  "script": "queue_stop.sh",
-  "args": []
-},
-{ "name": "FauxLite - Countdown To Time",
-  "description": "Count down to a show start on the sign. Programs the sign's countdown timer to the target time and writes a live countdown page (e.g. \"Show starts in 0:42:13\"); at zero the sign switches to the end page. {days} {hours} {minutes} {seconds} {target} {current} are live fields.",
-  "script": "countdown.sh",
-  "args": [
-    { "name": "showTime", "type": "time", "description": "Show start time" },
-    { "name": "date", "type": "string", "description": "Date (YYYY-MM-DD, blank = next occurrence)", "optional": true,
-      "placeholder": "2026-12-24 or blank" },
-    { "name": "format", "type": "string", "description": "Countdown text (blank = only program the timer)", "default": "Show starts in {hours}:{minutes}:{seconds}",
-      "optional": true, "placeholder": "{hours}:{minutes}:{seconds} until showtime" },
-    { "name": "page", "type": "string", "description": "Page for the countdown text", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} },
-    { "name": "endPage", "type": "string", "description": "Page shown when the countdown reaches zero", "default": "A",
-      "contents": {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"} },
-    { "name": "color", "type": "string", "description": "Color", "default": "", "optional": true,
-      "contents": {"Device default": "", "Dim red": "CA", "Red": "CB", "Bright red": "CC", "Orange": "CD", "Bright orange": "CE", "Light yellow": "CF", "Yellow": "CG", "Bright yellow": "CH", "Lime": "CI", "Dim lime": "CJ", "Bright lime": "CK", "Bright green": "CL", "Green": "CM", "Dim green": "CN", "Yellow/green/red": "CO", "Rainbow": "CP", "Red/green 3D": "CQ", "Red/yellow 3D": "CR", "Green/red 3D": "CS", "Green/yellow 3D": "CT", "Green on red": "CU", "Red on green": "CV", "Orange on green 3D": "CW", "Lime on red 3D": "CX", "Green on red 3D (alt)": "CY", "Red on green 3D (alt)": "CZ"} },
-    { "name": "font", "type": "string", "description": "Font", "default": "", "optional": true,
-      "contents": {"Device default": "", "Normal": "SA", "Bold": "SB", "Italic": "SC", "Bold italic": "SD", "Flash normal": "SE", "Flash bold": "SF", "Flash italic": "SG", "Flash bold italic": "SH"} },
-    { "name": "size", "type": "string", "description": "Character size", "default": "", "optional": true,
-      "contents": {"Device default": "", "5x7": "SI", "4x7 (smaller)": "SJ"} },
-    { "name": "function", "type": "string", "description": "Display effect", "default": "", "optional": true,
-      "contents": {"Device default": "", "Auto": "FA", "Open": "FB", "Cover": "FC", "Cycling": "FE", "Close right": "FF", "Close left": "FG", "Close both": "FH", "Scroll up": "FI", "Scroll down": "FJ", "Overlap": "FK", "Stacking": "FL", "Comic 1": "FM", "Comic 2": "FN", "Appear": "FQ", "Random": "FR", "Shift left": "FS", "Magic": "FU"} },
-    { "name": "displayMode", "type": "string", "description": "After writing", "default": "display",
-      "contents": {"Show this page now": "display", "Just store it in the page": "store"} }
-  ]
-},
-{ "name": "FauxLite - Send Raw Command",
-  "description": "Send a bare Pro-Lite protocol command, e.g. <PA><CH>Hello - the device adds the <ID> wrapper.",
-  "script": "send_raw.sh",
-  "args": [
-    { "name": "command", "type": "string", "description": "Pro-Lite command",
-      "placeholder": "<PA><CH>Hello World " }
-  ]
-}
+    {
+        "name": "FauxLite - Send Message",
+        "description": "Write a text message to a sign page, optionally switching the display to that page.",
+        "script": "send_message.sh",
+        "args": [
+            {
+                "name": "message",
+                "type": "string",
+                "description": "Message text",
+                "placeholder": "Text to display"
+            },
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page (C-X; A/B are owned by the device queues, Y/Z by one-shot messages)",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            },
+            {
+                "name": "color",
+                "type": "string",
+                "description": "Color",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Dim red": "CA",
+                    "Red": "CB",
+                    "Bright red": "CC",
+                    "Orange": "CD",
+                    "Bright orange": "CE",
+                    "Light yellow": "CF",
+                    "Yellow": "CG",
+                    "Bright yellow": "CH",
+                    "Lime": "CI",
+                    "Dim lime": "CJ",
+                    "Bright lime": "CK",
+                    "Bright green": "CL",
+                    "Green": "CM",
+                    "Dim green": "CN",
+                    "Yellow/green/red": "CO",
+                    "Rainbow": "CP",
+                    "Red/green 3D": "CQ",
+                    "Red/yellow 3D": "CR",
+                    "Green/red 3D": "CS",
+                    "Green/yellow 3D": "CT",
+                    "Green on red": "CU",
+                    "Red on green": "CV",
+                    "Orange on green 3D": "CW",
+                    "Lime on red 3D": "CX",
+                    "Green on red 3D (alt)": "CY",
+                    "Red on green 3D (alt)": "CZ"
+                }
+            },
+            {
+                "name": "font",
+                "type": "string",
+                "description": "Font",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Normal": "SA",
+                    "Bold": "SB",
+                    "Italic": "SC",
+                    "Bold italic": "SD",
+                    "Flash normal": "SE",
+                    "Flash bold": "SF",
+                    "Flash italic": "SG",
+                    "Flash bold italic": "SH"
+                }
+            },
+            {
+                "name": "size",
+                "type": "string",
+                "description": "Character size",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "5x7": "SI",
+                    "4x7 (smaller)": "SJ"
+                }
+            },
+            {
+                "name": "function",
+                "type": "string",
+                "description": "Display effect",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Auto": "FA",
+                    "Open": "FB",
+                    "Cover": "FC",
+                    "Date": "FD",
+                    "Cycling": "FE",
+                    "Close right": "FF",
+                    "Close left": "FG",
+                    "Close both": "FH",
+                    "Scroll up": "FI",
+                    "Scroll down": "FJ",
+                    "Overlap": "FK",
+                    "Stacking": "FL",
+                    "Comic 1": "FM",
+                    "Comic 2": "FN",
+                    "Beep": "FO",
+                    "Pause": "FP",
+                    "Appear": "FQ",
+                    "Random": "FR",
+                    "Shift left": "FS",
+                    "Time": "FT",
+                    "Magic": "FU",
+                    "Thank you": "FV",
+                    "Welcome": "FW"
+                }
+            },
+            {
+                "name": "displayMode",
+                "type": "string",
+                "description": "After writing",
+                "default": "display",
+                "contents": {
+                    "Show this page now": "display",
+                    "Just store it in the page": "store"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - One-Shot Message",
+        "description": "Flash a temporary message over the current display. Uses reserved pages Y and Z, then returns to what was showing.",
+        "script": "oneshot.sh",
+        "args": [
+            {
+                "name": "text",
+                "type": "string",
+                "description": "Message text",
+                "placeholder": "Text to display briefly"
+            },
+            {
+                "name": "repeat",
+                "type": "int",
+                "description": "Times to show it",
+                "min": 1,
+                "max": 99,
+                "default": "1"
+            },
+            {
+                "name": "color",
+                "type": "string",
+                "description": "Color",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Dim red": "CA",
+                    "Red": "CB",
+                    "Bright red": "CC",
+                    "Orange": "CD",
+                    "Bright orange": "CE",
+                    "Light yellow": "CF",
+                    "Yellow": "CG",
+                    "Bright yellow": "CH",
+                    "Lime": "CI",
+                    "Dim lime": "CJ",
+                    "Bright lime": "CK",
+                    "Bright green": "CL",
+                    "Green": "CM",
+                    "Dim green": "CN",
+                    "Yellow/green/red": "CO",
+                    "Rainbow": "CP",
+                    "Red/green 3D": "CQ",
+                    "Red/yellow 3D": "CR",
+                    "Green/red 3D": "CS",
+                    "Green/yellow 3D": "CT",
+                    "Green on red": "CU",
+                    "Red on green": "CV",
+                    "Orange on green 3D": "CW",
+                    "Lime on red 3D": "CX",
+                    "Green on red 3D (alt)": "CY",
+                    "Red on green 3D (alt)": "CZ"
+                }
+            },
+            {
+                "name": "font",
+                "type": "string",
+                "description": "Font",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Normal": "SA",
+                    "Bold": "SB",
+                    "Italic": "SC",
+                    "Bold italic": "SD",
+                    "Flash normal": "SE",
+                    "Flash bold": "SF",
+                    "Flash italic": "SG",
+                    "Flash bold italic": "SH"
+                }
+            },
+            {
+                "name": "size",
+                "type": "string",
+                "description": "Character size",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "5x7": "SI",
+                    "4x7 (smaller)": "SJ"
+                }
+            },
+            {
+                "name": "function",
+                "type": "string",
+                "description": "Display effect",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Auto": "FA",
+                    "Open": "FB",
+                    "Cover": "FC",
+                    "Cycling": "FE",
+                    "Close right": "FF",
+                    "Close left": "FG",
+                    "Close both": "FH",
+                    "Scroll up": "FI",
+                    "Scroll down": "FJ",
+                    "Overlap": "FK",
+                    "Stacking": "FL",
+                    "Comic 1": "FM",
+                    "Comic 2": "FN",
+                    "Appear": "FQ",
+                    "Random": "FR",
+                    "Shift left": "FS",
+                    "Magic": "FU"
+                }
+            },
+            {
+                "name": "beep",
+                "type": "string",
+                "description": "Beep first",
+                "default": "no",
+                "contents": {
+                    "No": "no",
+                    "Yes": "yes"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Run Page",
+        "description": "Switch the display to a stored page (A-Z).",
+        "script": "run_page.sh",
+        "args": [
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page",
+                "default": "A",
+                "contents": {
+                    "A": "A",
+                    "B": "B",
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X",
+                    "Y": "Y",
+                    "Z": "Z"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Blank Display",
+        "description": "Blank the sign by showing an empty page.",
+        "script": "blank.sh",
+        "args": [
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page to blank on",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Show Time",
+        "description": "Display the sign's built-in clock.",
+        "script": "show_time.sh",
+        "args": [
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Show Date",
+        "description": "Display the sign's built-in date.",
+        "script": "show_date.sh",
+        "args": [
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Beep",
+        "description": "Beep the sign's speaker. Uses reserved pages Y and Z.",
+        "script": "beep.sh",
+        "args": [
+            {
+                "name": "count",
+                "type": "int",
+                "description": "Number of beeps",
+                "min": 1,
+                "max": 99,
+                "default": "1"
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Start Message Queue",
+        "description": "Start a message queue configured on the FauxLite device itself (boot queue if set, else the first one with messages).",
+        "script": "queue_start.sh",
+        "args": []
+    },
+    {
+        "name": "FauxLite - Stop Message Queue",
+        "description": "Stop the device message queue (its own /api/loop/stop).",
+        "script": "queue_stop.sh",
+        "args": []
+    },
+    {
+        "name": "FauxLite - Countdown To Time",
+        "description": "Count down to a show start on the sign. Programs the sign's countdown timer to the target time and writes a live countdown page (e.g. \"Show starts in 0:42:13\"); at zero the sign switches to the end page. {days} {hours} {minutes} {seconds} {target} {current} are live fields.",
+        "script": "countdown.sh",
+        "args": [
+            {
+                "name": "showTime",
+                "type": "time",
+                "description": "Show start time"
+            },
+            {
+                "name": "date",
+                "type": "string",
+                "description": "Date (YYYY-MM-DD, blank = next occurrence)",
+                "optional": true,
+                "placeholder": "2026-12-24 or blank"
+            },
+            {
+                "name": "format",
+                "type": "string",
+                "description": "Countdown text (blank = only program the timer)",
+                "default": "Show starts in {hours}:{minutes}:{seconds}",
+                "optional": true,
+                "placeholder": "{hours}:{minutes}:{seconds} until showtime"
+            },
+            {
+                "name": "page",
+                "type": "string",
+                "description": "Page for the countdown text",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            },
+            {
+                "name": "endPage",
+                "type": "string",
+                "description": "Page shown when the countdown reaches zero",
+                "default": "C",
+                "contents": {
+                    "C": "C",
+                    "D": "D",
+                    "E": "E",
+                    "F": "F",
+                    "G": "G",
+                    "H": "H",
+                    "I": "I",
+                    "J": "J",
+                    "K": "K",
+                    "L": "L",
+                    "M": "M",
+                    "N": "N",
+                    "O": "O",
+                    "P": "P",
+                    "Q": "Q",
+                    "R": "R",
+                    "S": "S",
+                    "T": "T",
+                    "U": "U",
+                    "V": "V",
+                    "W": "W",
+                    "X": "X"
+                }
+            },
+            {
+                "name": "color",
+                "type": "string",
+                "description": "Color",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Dim red": "CA",
+                    "Red": "CB",
+                    "Bright red": "CC",
+                    "Orange": "CD",
+                    "Bright orange": "CE",
+                    "Light yellow": "CF",
+                    "Yellow": "CG",
+                    "Bright yellow": "CH",
+                    "Lime": "CI",
+                    "Dim lime": "CJ",
+                    "Bright lime": "CK",
+                    "Bright green": "CL",
+                    "Green": "CM",
+                    "Dim green": "CN",
+                    "Yellow/green/red": "CO",
+                    "Rainbow": "CP",
+                    "Red/green 3D": "CQ",
+                    "Red/yellow 3D": "CR",
+                    "Green/red 3D": "CS",
+                    "Green/yellow 3D": "CT",
+                    "Green on red": "CU",
+                    "Red on green": "CV",
+                    "Orange on green 3D": "CW",
+                    "Lime on red 3D": "CX",
+                    "Green on red 3D (alt)": "CY",
+                    "Red on green 3D (alt)": "CZ"
+                }
+            },
+            {
+                "name": "font",
+                "type": "string",
+                "description": "Font",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Normal": "SA",
+                    "Bold": "SB",
+                    "Italic": "SC",
+                    "Bold italic": "SD",
+                    "Flash normal": "SE",
+                    "Flash bold": "SF",
+                    "Flash italic": "SG",
+                    "Flash bold italic": "SH"
+                }
+            },
+            {
+                "name": "size",
+                "type": "string",
+                "description": "Character size",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "5x7": "SI",
+                    "4x7 (smaller)": "SJ"
+                }
+            },
+            {
+                "name": "function",
+                "type": "string",
+                "description": "Display effect",
+                "default": "",
+                "optional": true,
+                "contents": {
+                    "Device default": "",
+                    "Auto": "FA",
+                    "Open": "FB",
+                    "Cover": "FC",
+                    "Cycling": "FE",
+                    "Close right": "FF",
+                    "Close left": "FG",
+                    "Close both": "FH",
+                    "Scroll up": "FI",
+                    "Scroll down": "FJ",
+                    "Overlap": "FK",
+                    "Stacking": "FL",
+                    "Comic 1": "FM",
+                    "Comic 2": "FN",
+                    "Appear": "FQ",
+                    "Random": "FR",
+                    "Shift left": "FS",
+                    "Magic": "FU"
+                }
+            },
+            {
+                "name": "displayMode",
+                "type": "string",
+                "description": "After writing",
+                "default": "display",
+                "contents": {
+                    "Show this page now": "display",
+                    "Just store it in the page": "store"
+                }
+            }
+        ]
+    },
+    {
+        "name": "FauxLite - Send Raw Command",
+        "description": "Send a bare Pro-Lite protocol command, e.g. <PA><CH>Hello - the device adds the <ID> wrapper.",
+        "script": "send_raw.sh",
+        "args": [
+            {
+                "name": "command",
+                "type": "string",
+                "description": "Pro-Lite command",
+                "placeholder": "<PA><CH>Hello World "
+            }
+        ]
+    }
 ]

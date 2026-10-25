@@ -18,7 +18,7 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
 - `api.php` — plugin API under `/api/plugin/fpp-plugin-FauxLite/*`
   (info/send/raw/runpage/blank/time/date/oneshot/beep/queue/test).
 - `settings.json` — declarative fields (PrintSettingGroup, instant save).
-  Keys: `enabled`, `host`, `npEnabled`, `npRestoreQueue`,
+  Keys: `enabled`, `host`, `npEnabled`, `npRotationPage`,
   `showName`/`showTagline`/`showHost`/`showLocation`/`showSchedule`/
   `showUrl` (the `{show*}` placeholders), `stopAction` (keep|blank|
   time|date|custom|queue), `stopPage`, `stopText`, `stopColor`,
@@ -79,24 +79,35 @@ Pro-Lite spelling:
   Page text can embed live fields: `F3`–`F6` = days/hours/min/sec left,
   `F1` target, `F2` current — inject AFTER sanitize() so the `<Fx>`
   codes survive (page_write escape=False does exactly that).
-- Pages A–X free; **Y and Z reserved** for one-shot/beep (blank Y +
-  message Z + `<RPZ><NN><RPY>` restores what was showing).
-- Multi-page rotation = the device's own message queue loaded with
-  `{command:"<attrs>text ",duration:secs}` entries + `loop/start`.
-  Firmware wraps each queued command in `<PA>` when it fires
-  (sendToProlite) — entries are BARE content commands, never `<RPx>`
-  (that's why the device's Messages UI stores e.g. `<CG><FQ>Hello`).
-  Everything queued displays on page A; each row's letter is also
-  written via `<Px>` for storage/Run-Page access. `ensure_rotation()`
-  snapshots the user's queue on takeover (`GET /api/messages` → state
-  file), `release_rotation()` restores it on playlist stop/shutdown
-  when `npRestoreQueue` is on (default), and the device queue is
-  re-verified per media event — /api/messages persists to ESP32 flash
-  so it only re-POSTs when the wanted entries actually differ (a new
-  song's text legitimately triggers one rewrite). `<FZ>` "Link Page"
-  is listed in the Tru-Color II doc's function table but its operand
-  syntax is undocumented everywhere we looked — do NOT emit it without
-  hardware verification.
+- Pages **A and B are firmware-owned** (queue run page / queue chain
+  page); **Y and Z reserved** for one-shot/test/boot. Plugin pages are
+  C–X (`PAGES_MSG`; `page_letter`/`fl_page` default to C).
+- Multi-page rotation = ONE sign page (`npRotationPage`, default C)
+  holding every row as an `<FP>`-separated segment — exactly what the
+  firmware's buildQueuePageCommand compiles its queues into. Each
+  segment displays then each `<FP>` holds ~2s → row "secs" becomes
+  (secs+1)//2 pause tags; the page loops back to the first segment.
+  Rebuilt + `<RPx>` on every media event; the device queue is never
+  touched (new firmware POST /api/messages REPLACES all
+  queues+schedules+bootQueue — a partial payload wipes them).
+- Blank needs an all-black graphic block: a visibly-empty page falls
+  back to the sign's HELLO demo. We define block Z ourselves
+  (`<GZ>`+126 B's, `ensure_black_graphic`) then show `<Px><FQ><BZ> `.
+- Device queues (new firmware): GET /api/messages →
+  `{queues:[{name,runTimes,nextQueue,messages:[{command,duration}]}],
+  schedules,bootQueue,activeQueue,runPage,chainPage,timeSynced}`;
+  `POST /api/loop/start?queue=N` (index required, 400 on empty);
+  `/api/loop/stop`. `start_device_queue()` picks bootQueue else first
+  non-empty. Firmware writes the whole queue to page A and chains to B
+  via `<RPA><nn><RPB>` itself.
+- /api/send now also saves `lastDisplay` in prefs (replayed on boot)
+  and clears activeQueue bookkeeping on <P/<R/<D commands.
+- New firmware endpoints not yet exposed by the plugin:
+  `/api/graphics` GET/POST (user graphic blocks `<Gx>data`/`<DGx>`),
+  `/api/wipe-sign` (`<D*>` + re-upload graphics — emergency only).
+- `<FZ>` "Link Page" is listed in the Tru-Color II doc's function
+  table but its operand syntax is undocumented — do NOT emit it
+  without hardware verification.
 - Trailing space after text keeps the sign out of demo mode.
 - Text is sanitized to ASCII with `<>`/control chars stripped — song
   metadata must not inject protocol codes.
@@ -104,10 +115,8 @@ Pro-Lite spelling:
 ## Ops notes
 
 - Config lives in `config/plugin.fpp-plugin-FauxLite` (key=value,
-  written by SetPluginSetting/WriteSettingToFile). No daemon. The only
-  state file is `plugindata/fpp-plugin-FauxLite/np-state.json` —
-  rotation signature + the device-queue snapshot taken on takeover so
-  the user's queue comes back after the show.
+  written by SetPluginSetting/WriteSettingToFile). No daemon, no state
+  files — the rotation is stateless (page rewritten per media event).
 - Single plugin log `logs/plugin-fpp-plugin-FauxLite.log` (FPP rotates).
 - HTTP timeouts: 4s total, always bounded; failures log + return, never
   stall fppd.

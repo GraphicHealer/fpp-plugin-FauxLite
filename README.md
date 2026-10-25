@@ -48,12 +48,13 @@ message queue, and quick-send controls.
 ## Now Playing pages
 
 The page editor builds the sign's rotation: each row is one message with
-its own text, effect, color, font, size and on-screen **seconds**. One
-row = a single static page; two or more rows rotate seamlessly, driven by
-the device's own message queue — the plugin loads each rendered message
-into the queue (the same format the device's Messages page uses,
-e.g. `<CG><FQ>Hello World`) and starts the loop, so the sign cycles on
-its own. New song text lands in the queue on the next media event.
+its own text, effect, color, font, size and hold **seconds**. One row = a
+single static page; two or more rows are combined onto the **Rotation
+Page** — each message displays, then holds for its seconds (in ~2s
+steps, the same pause model the device's own queues use) before the
+next — so the sign cycles them seamlessly on one page with nothing else
+involved. Each row's content is also stored on its **Page** letter, so
+it stays reachable via Run Page commands and one-shot restores.
 
 Example — `Jones Light Show` → `Now Playing:` → artist → title:
 
@@ -73,12 +74,11 @@ Text placeholders: `{title}` `{artist}` `{album}` `{sequence}`
 A page whose text is just an **Effect** (e.g. Time or Date) shows that
 function — no text needed.
 
-The rotation borrows the device's message queue while the show runs.
-**Restore Device Queue on Stop** (default on) puts back whatever was
-queued before — the plugin snapshots it the first time it takes over.
-With no pages configured at all, the plugin falls back to a single
-`{title}` page (any pre-upgrade `npFormat`/`npPage`/etc. settings are
-still honored).
+The rotation never touches the device's own message queues — your
+queues and schedules keep running exactly as configured. With no pages
+configured at all, the plugin falls back to a single `{title}` page on
+C (any pre-upgrade `npFormat`/`npPage`/etc. settings are still
+honored).
 
 ## FPP commands
 
@@ -94,11 +94,13 @@ GPIO scripts, command editor):
 | FauxLite - Show Time / Date | show the sign's built-in clock/date |
 | FauxLite - Countdown To Time | count down to a show start — programs the sign's countdown timer and writes a live `{hours}:{minutes}:{seconds}` page; at zero the sign switches to the end page |
 | FauxLite - Beep | beep the sign's speaker |
-| FauxLite - Start / Stop Message Queue | control the device's own message loop |
+| FauxLite - Start / Stop Message Queue | control the device's own message queue (boot queue or first non-empty) |
 | FauxLite - Send Raw Command | send any bare Pro-Lite protocol string |
 
-Pages **A–X** are yours. **Y and Z are reserved** for one-shot messages
-and beep — don't keep content there.
+Pages **C–X** are yours. The firmware owns **A and B** for its own
+message queues (run page and chain page), and **Y and Z** are reserved
+for one-shot messages, beep, tests and boot messages — don't keep
+content on any of those.
 
 ## Countdowns
 
@@ -115,6 +117,9 @@ fill that page beforehand (a "SHOWTIME!" message, for example) using
 ## Notes
 
 - The sign has no auth — keep it on a trusted LAN.
+- A truly blank display needs an all-black graphic block: a visibly
+  empty page falls back to the sign's built-in "HELLO" demo. The plugin
+  defines graphic block Z as all-black and uses `<BZ>` for blanking.
 - A trailing space is appended to every message to keep the sign out of
   demo mode.
 - Non-ASCII characters and `<`/`>` are stripped from message text so

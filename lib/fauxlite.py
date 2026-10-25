@@ -34,14 +34,15 @@ MEDIADIR = os.environ.get("MEDIADIR", "/home/fpp/media")
 LOGDIR = os.environ.get("LOGDIR", os.path.join(MEDIADIR, "logs"))
 SETTINGS_PATH = os.path.join(MEDIADIR, "config", "plugin." + PLUGIN)
 LOG_FILE = os.path.join(LOGDIR, "plugin-%s.log" % PLUGIN)
-DATADIR = os.path.join(MEDIADIR, "plugindata", PLUGIN)
-STATE_PATH = os.path.join(DATADIR, "np-state.json")
 FPP_API = os.environ.get("FPPAPI", "http://127.0.0.1")
 
 HTTP_TIMEOUT = 4
 HOST_RE = re.compile(r"^[A-Za-z0-9._-]+(:[0-9]{1,5})?$")
 PAGES_ALL = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
-PAGES_MSG = PAGES_ALL[:24]  # A-X: Y and Z are reserved for one-shot messages
+# C-X are the plugin's message pages. The firmware owns A (queue run
+# page) and B (queue chain page); Y/Z stay reserved for one-shot/test/
+# boot messages.
+PAGES_MSG = PAGES_ALL[2:24]
 
 # Pro-Lite protocol code tables.
 COLORS = {
@@ -176,18 +177,55 @@ def write_and_run(cfg, page, text, color="", font="", size="",
     return run_page(cfg, page)
 
 
-def loop_action(cfg, action):
+def loop_action(cfg, action, index=None):
+    """POST /api/loop/start|stop. 'start' takes ?queue=N on current
+    firmware (an index into the queues array); 'stop' takes no index."""
     try:
         url = base_url(cfg)
     except ValueError as e:
         log("loop %s skipped: %s" % (action, e))
         return False
-    status, _, err = http_json("POST", url + "/api/loop/" + action)
+    ep = url + "/api/loop/" + action
+    if action == "start" and index is not None:
+        ep += "?queue=%d" % index
+    status, _, err = http_json("POST", ep)
     if status != 200:
         log("loop %s failed: %s" % (action, err or status))
         return False
-    log("queue %s" % action)
+    log("queue %s%s" % (action,
+                        " #%d" % index if index is not None else ""))
     return True
+
+
+def start_device_queue(cfg, index=None):
+    """Start the device's own message queue. With no index, prefer the
+    boot queue, then the first queue that has messages."""
+    if index is not None:
+        return loop_action(cfg, "start", index)
+    try:
+        url = base_url(cfg)
+    except ValueError as e:
+        log("queue start skipped: %s" % e)
+        return False
+    code, cur, err = http_json("GET", url + "/api/messages")
+    if code != 200 or not isinstance(cur, dict):
+        log("queue start: could not read queues (%s)" % (err or code))
+        return False
+    qs = cur.get("queues") or []
+    pick = -1
+    bq = cur.get("bootQueue")
+    if isinstance(bq, int) and 0 <= bq < len(qs) \
+            and isinstance(qs[bq], dict) and qs[bq].get("messages"):
+        pick = bq
+    else:
+        for i, q in enumerate(qs):
+            if isinstance(q, dict) and q.get("messages"):
+                pick = i
+                break
+    if pick < 0:
+        log("queue start: device has no queues to run")
+        return False
+    return loop_action(cfg, "start", pick)
 
 
 def resolve(value, table):
@@ -308,7 +346,7 @@ def countdown(cfg, args):
         log("countdown: %d days out is too far" % days)
         return 1
 
-    end_page = page_letter(args.end_page, PAGES_MSG)
+    end_page = page_letter(args.end_page, PAGES_MSG, default="C")
     if not send_command(cfg, "<V%04d%02d%02d%s>"
                       % (days, hours, minutes, end_page)):
         return 1
@@ -318,7 +356,7 @@ def countdown(cfg, args):
     text = countdown_text(args.format or "")
     if not text.strip():
         return 0  # timer set; user only wanted it programmed
-    page = page_letter(args.page, PAGES_MSG)
+    page = page_letter(args.page, PAGES_MSG, default="C")
     if args.display_mode == "display":
         ok = write_and_run(cfg, page, text, args.color, args.font,
                            args.size, args.function, escape=False)
@@ -437,11 +475,11 @@ def np_pages(cfg):
                     "color": str(p.get("color") or ""),
                     "font": str(p.get("font") or ""),
                     "size": str(p.get("size") or ""),
-                    "duration": max(1, min(300, dur)),
+                    "duration": max(0, min(300, dur)),
                 })
             if pages:
                 return pages
-    return [{"page": page_letter(cfg.get("npPage"), PAGES_MSG),
+    return [{"page": page_letter(cfg.get("npPage"), PAGES_MSG, default="C"),
              "text": cfg.get("npFormat") or "{title}",
              "function": cfg.get("npFunction", ""),
              "color": cfg.get("npColor", ""),
@@ -450,117 +488,48 @@ def np_pages(cfg):
              "duration": 8, "legacy": True}]
 
 
-def load_state():
-    try:
-        with open(STATE_PATH) as f:
-            st = json.load(f)
-        return st if isinstance(st, dict) else {}
-    except (OSError, ValueError):
-        return {}
+def combined_page(page, rendered):
+    """One sign page holding every row's message, separated by <FP>
+    pause tags — the same layout the firmware's own queue compiler
+    (buildQueuePageCommand) produces: each segment displays, then each
+    <FP> holds it for ~2s, so a row's hold seconds becomes
+    (secs+1)//2 pause tags. After the last segment the page loops back
+    to the first, giving a seamless multi-message rotation on a single
+    page with no device-queue involvement at all."""
+    cmd = "<P%s>" % page
+    for p, text in rendered:
+        cmd += page_attrs(p["function"], p["color"], p["font"], p["size"])
+        cmd += sanitize(text) + " "
+        cmd += "<FP>" * ((p["duration"] + 1) // 2)
+    return cmd
 
 
-def save_state(st):
-    try:
-        os.makedirs(DATADIR, exist_ok=True)
-        with open(STATE_PATH, "w") as f:
-            json.dump(st, f)
-    except OSError as e:
-        log("state save failed: %s" % e)
+def rotation_page(cfg):
+    return page_letter(cfg.get("npRotationPage"), PAGES_MSG, default="C")
 
 
-def queue_command(p, text):
-    """A device-queue entry's command: attribute codes + text, with NO
-    <Px> selector and NO <RPx>. The firmware wraps each queued command
-    in '<PA>' before sending (sendToProlite), so every entry writes and
-    displays page A — exactly how the device's own Messages page stores
-    entries like '<CG><FQ>Hello World'."""
-    return (page_attrs(p["function"], p["color"], p["font"], p["size"])
-            + sanitize(text) + " ")
+# 18x7 all-black bitmap (one R/G/Y/B char per dot). A page with no
+# visible content falls back to the sign's built-in HELLO demo, so real
+# blanking needs a black graphic block — a space doesn't cut it. We
+# define our own on block Z rather than relying on the firmware's
+# block-B upload.
+BLACK_GRAPHIC = "B" * 126
 
 
-def ensure_rotation(cfg, rendered):
-    """Program the device message queue to cycle the rendered page
-    commands — the sign-side engine that rotates seamlessly with zero
-    plugin involvement between media events. `rendered` is a list of
-    (page_dict, text) pairs; entries become
-    {command: '<attrs>text ', duration: secs}.
-
-    The first takeover snapshots the user's queue (messages, runOnBoot,
-    queueActive) into the state file; release_rotation() puts it back.
-    The device queue is re-verified every media event and only
-    re-POSTed when the wanted entries differ — /api/messages persists
-    to the ESP32's flash prefs, so needless rewrites are avoided (a new
-    song's changed text does legitimately trigger one rewrite)."""
-    want = [{"command": queue_command(p, text), "duration": p["duration"]}
-            for p, text in rendered]
-    st = load_state()
-    try:
-        url = base_url(cfg)
-    except ValueError as e:
-        log("rotation skipped: %s" % e)
-        return
-
-    code, cur, _ = http_json("GET", url + "/api/messages")
-    if code == 200 and isinstance(cur, dict) \
-            and cur.get("queueActive") and cur.get("messages") == want \
-            and st.get("sig"):
-        return  # device already cycling exactly what we want
-    if code == 0:
-        return  # unreachable; the page writes already logged it
-    if code != 200 or not isinstance(cur, dict):
-        log("rotation: could not read device queue")
-        return
-    if not st.get("snapshot"):
-        st["snapshot"] = {"messages": cur.get("messages") or [],
-                          "runOnBoot": bool(cur.get("runOnBoot")),
-                          "queueActive": bool(cur.get("queueActive"))}
-    code, _, err = http_json("POST", url + "/api/messages",
-                             {"messages": want,
-                              "runOnBoot": bool(cur.get("runOnBoot"))})
-    if code != 200:
-        log("rotation: queue program failed (%s)" % (err or code))
-        return
-    loop_action(cfg, "start")
-    st["sig"] = json.dumps(want)
-    save_state(st)
-    log("rotation: cycling %d pages on A (%s)"
-        % (len(want), ", ".join(p["page"] for p, _ in rendered)))
+def ensure_black_graphic(cfg):
+    return send_command(cfg, "<GZ>" + BLACK_GRAPHIC)
 
 
-def release_rotation(cfg):
-    """Stop the rotation queue and (default) restore whatever the
-    device's message queue held before we borrowed it."""
-    st = load_state()
-    if not st.get("sig"):
-        return
-    loop_action(cfg, "stop")
-    snap = st.get("snapshot") or {}
-    msgs = snap.get("messages")
-    try:
-        url = base_url(cfg)
-    except ValueError:
-        url = None
-    if url and truthy(cfg.get("npRestoreQueue", "1")) \
-            and isinstance(msgs, list):
-        code, _, err = http_json("POST", url + "/api/messages",
-                                 {"messages": msgs,
-                                  "runOnBoot": bool(snap.get("runOnBoot"))})
-        if code != 200:
-            log("rotation: queue restore failed (%s)" % (err or code))
-        elif snap.get("queueActive"):
-            loop_action(cfg, "start")
-    elif url:
-        # Not restoring — still clear our <RPx> entries out of the
-        # device's saved queue so they don't come back on boot.
-        http_json("POST", url + "/api/messages",
-                  {"messages": [],
-                   "runOnBoot": bool(snap.get("runOnBoot"))})
-    save_state({})
-    log("rotation: released")
+def blank_page_cmd(page, function="FQ"):
+    """'<Px><F?><BZ> ' — an all-black graphic page (a truly blank
+    display, unlike a space which shows HELLO)."""
+    return "<P%s>%s<BZ> " % (page, page_attrs(function))
 
 
 def blank(cfg, page):
-    if not send_command(cfg, "<P%s> " % page):
+    if not ensure_black_graphic(cfg):
+        return False
+    if not send_command(cfg, blank_page_cmd(page)):
         return False
     return run_page(cfg, page)
 
@@ -568,7 +537,7 @@ def blank(cfg, page):
 def stop_action(cfg):
     """Apply the configured 'when the show stops' action."""
     action = (cfg.get("stopAction") or "keep").strip()
-    page = page_letter(cfg.get("stopPage"), PAGES_MSG)
+    page = page_letter(cfg.get("stopPage"), PAGES_MSG, default="C")
     if action == "blank":
         return blank(cfg, page)
     if action == "time":
@@ -586,7 +555,7 @@ def stop_action(cfg):
         return write_and_run(cfg, page, text, cfg.get("stopColor", ""),
                              function=cfg.get("stopFunction", ""))
     if action == "queue":
-        return loop_action(cfg, "start")
+        return start_device_queue(cfg)
     return True  # "keep" — leave the sign as-is
 
 
@@ -594,9 +563,9 @@ def stop_action(cfg):
 
 
 def handle_media(cfg, data):
-    """fppd media event -> render every configured page, then keep the
-    sign cycling them via the device queue (multi-page) or just run the
-    one page."""
+    """fppd media event -> render every configured row, then either run
+    the one page (single row) or rebuild the combined rotation page
+    (multi-row)."""
     if not truthy(cfg.get("npEnabled")):
         return 0
     etype = str(data.get("type") or "").lower()
@@ -610,40 +579,34 @@ def handle_media(cfg, data):
         p, text = rendered[0]
         if p.get("legacy") and not text.strip():
             text = fields["filename"]
-        # A stale rotation signature means a previous multi-page setup
-        # still owns the queue — hand it back first.
-        if load_state().get("sig"):
-            release_rotation(cfg)
         write_and_run(cfg, p["page"], text, p["color"], p["font"],
                       p["size"], p["function"])
         return 0
 
-    # Store each row's content on its own sign page (keeps it reachable
-    # via Run Page / countdown end-pages / one-shot restores), then let
-    # the device queue display-cycle the rendered commands on page A.
-    # Function-only rows (clock/date) need no text; an empty render just
-    # holds its slot in the rotation.
+    # Each row's content also lands on its own sign page (reachable via
+    # Run Page / countdown end-pages / one-shot restores), then the
+    # combined <FP>-separated page on npRotationPage drives the visible
+    # rotation — written last so it wins if a row shares its letter.
+    rot = rotation_page(cfg)
     for p, text in rendered:
         send_command(cfg, page_write(p["page"], text, p["color"],
                                      p["font"], p["size"],
                                      p["function"]))
-    ensure_rotation(cfg, rendered)
+    send_command(cfg, combined_page(rot, rendered))
+    run_page(cfg, rot)
     return 0
 
 
 def handle_playlist(cfg, data):
-    """Playlist stop -> release the rotation, then the configured stop
-    action (time/blank/...)."""
+    """Playlist stop -> the configured stop action (time/blank/...)."""
     if str(data.get("Action") or "").lower() != "stop":
         return 0
-    release_rotation(cfg)
     stop_action(cfg)
     return 0
 
 
 def handle_lifecycle(cfg, phase):
     if phase == "shutdown":
-        release_rotation(cfg)
         stop_action(cfg)
     return 0
 
@@ -663,23 +626,28 @@ def do_info(cfg):
 
 
 def oneshot(cfg, text, repeat, color, font, size, function, beep):
-    """One-shot: blank Y, message on Z, run Z xN then back to Y."""
-    page_y = page_write("Y", " ", function=function)
-    page_z = page_write("Z", text, color, font, size, function)
+    """One-shot: black page Y, message on Z, run Z xN then back to Y.
+    Y must hold the black graphic, not a space — a visibly-empty page
+    makes the sign fall back to its HELLO demo."""
     repeat = max(1, min(99, int(repeat or 1)))
     if beep:
         if not send_command(cfg, "<PX><FO> "):
             return False
-    if not send_command(cfg, page_y):
+    if not ensure_black_graphic(cfg):
         return False
-    if not send_command(cfg, page_z):
+    if not send_command(cfg, blank_page_cmd("Y", function)):
+        return False
+    if not send_command(cfg, page_write("Z", text, color, font, size,
+                                        function)):
         return False
     return send_command(cfg, "<RPZ><%02d><RPY>" % repeat)
 
 
 def beep(cfg, count):
     count = max(1, min(99, int(count or 1)))
-    if not send_command(cfg, page_write("Y", " ")):
+    if not ensure_black_graphic(cfg):
+        return False
+    if not send_command(cfg, blank_page_cmd("Y")):
         return False
     if not send_command(cfg, "<PZ><FO> "):
         return False
@@ -699,7 +667,7 @@ def build_parser():
 
     s = sub.add_parser("send", help="write text to a page")
     s.add_argument("--text", required=True)
-    s.add_argument("--page", default="A")
+    s.add_argument("--page", default="C")
     s.add_argument("--color", default="")
     s.add_argument("--font", default="")
     s.add_argument("--size", default="")
@@ -715,15 +683,18 @@ def build_parser():
     s.add_argument("--page", default="A")
 
     s = sub.add_parser("blank")
-    s.add_argument("--page", default="A")
+    s.add_argument("--page", default="C")
 
     s = sub.add_parser("time", help="show the sign's clock")
-    s.add_argument("--page", default="A")
+    s.add_argument("--page", default="C")
     s = sub.add_parser("date", help="show the sign's date")
-    s.add_argument("--page", default="A")
+    s.add_argument("--page", default="C")
 
-    s = sub.add_parser("queue", help="start/stop the device message queue")
+    s = sub.add_parser("queue", help="start/stop a device message queue")
     s.add_argument("direction", choices=["start", "stop"])
+    s.add_argument("--queue", type=int, default=None,
+                   help="queue index for start (default: boot queue, "
+                        "else first non-empty)")
 
     s = sub.add_parser("oneshot",
                        help="temporary message on reserved pages Y/Z")
@@ -748,8 +719,8 @@ def build_parser():
                    help="text with {days} {hours} {minutes} {seconds} "
                         "{target} {current} live fields; blank = only "
                         "program the timer")
-    s.add_argument("--page", default="A")
-    s.add_argument("--end-page", default="A",
+    s.add_argument("--page", default="C")
+    s.add_argument("--end-page", default="C",
                    help="page shown when the countdown reaches zero")
     s.add_argument("--color", default="")
     s.add_argument("--font", default="")
@@ -793,7 +764,7 @@ def main(argv):
         return handle_lifecycle(cfg, args.phase)
 
     if args.action == "send":
-        page = page_letter(args.page, PAGES_MSG)
+        page = page_letter(args.page, PAGES_MSG, default="C")
         if args.display_mode == "display":
             ok = write_and_run(cfg, page, args.text, args.color,
                                args.font, args.size, args.function)
@@ -811,21 +782,23 @@ def main(argv):
         return 0 if run_page(cfg, page) else 1
 
     if args.action == "blank":
-        page = page_letter(args.page, PAGES_MSG)
+        page = page_letter(args.page, PAGES_MSG, default="C")
         return 0 if blank(cfg, page) else 1
 
     if args.action == "time":
-        page = page_letter(args.page, PAGES_MSG)
+        page = page_letter(args.page, PAGES_MSG, default="C")
         ok = send_command(cfg, "<P%s><FT>" % page) and run_page(cfg, page)
         return 0 if ok else 1
 
     if args.action == "date":
-        page = page_letter(args.page, PAGES_MSG)
+        page = page_letter(args.page, PAGES_MSG, default="C")
         ok = send_command(cfg, "<P%s><FD>" % page) and run_page(cfg, page)
         return 0 if ok else 1
 
     if args.action == "queue":
-        return 0 if loop_action(cfg, args.direction) else 1
+        if args.direction == "start":
+            return 0 if start_device_queue(cfg, args.queue) else 1
+        return 0 if loop_action(cfg, "stop") else 1
 
     if args.action == "oneshot":
         ok = oneshot(cfg, args.text, args.repeat, args.color, args.font,

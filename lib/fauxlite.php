@@ -107,9 +107,13 @@ function fl_sanitize($text) {
     return trim(preg_replace('/[ \t]+/', ' ', $t));
 }
 
-function fl_page($v, $max = 'X') {
+/** Clamp a page letter. Default range C-X: the firmware owns pages A
+ * (queue run page) and B (queue chain page), and Y/Z stay reserved for
+ * one-shot/test/boot messages. Pass $min='A' for commands like Run
+ * Page where reaching an owned page is legitimate. */
+function fl_page($v, $max = 'X', $min = 'C') {
     $p = strtoupper(substr(trim((string)$v), 0, 1));
-    return ($p >= 'A' && $p <= $max) ? $p : 'A';
+    return ($p >= $min && $p <= $max) ? $p : $min;
 }
 
 /** '<P?><F?><C?><S?>text ' — same arg order as lib/fauxlite.py's

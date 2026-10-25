@@ -111,7 +111,7 @@ function fpppluginFauxLiteRaw() {
 // POST /api/plugin/fpp-plugin-FauxLite/runpage
 function fpppluginFauxLiteRunPage() {
     $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A', 'Z');
+    $page = fl_page(isset($in['page']) ? $in['page'] : 'A', 'Z', 'A');
     list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
@@ -119,16 +119,20 @@ function fpppluginFauxLiteRunPage() {
 // POST /api/plugin/fpp-plugin-FauxLite/blank
 function fpppluginFauxLiteBlank() {
     $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '> ');
-    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
+    $cfg = fl_cfg();
+    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
+    // A visibly-empty page falls back to the sign's HELLO demo — real
+    // blanking needs an all-black graphic block (we define block Z).
+    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if ($ok) list($ok, $d) = fl_send($cfg, '<P' . $page . '><FQ><BZ> ');
+    if ($ok) list($ok, $d) = fl_send($cfg, '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/time
 function fpppluginFauxLiteTime() {
     $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
+    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
     list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FT>');
     if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
@@ -137,7 +141,7 @@ function fpppluginFauxLiteTime() {
 // POST /api/plugin/fpp-plugin-FauxLite/date
 function fpppluginFauxLiteDate() {
     $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
+    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
     list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FD>');
     if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
     return _flSendResult($ok, $d);
@@ -156,8 +160,11 @@ function fpppluginFauxLiteOneshot() {
         list($ok, $d) = fl_send($cfg, '<PX><FO> ');
         if (!$ok) return _flSendResult(false, $d);
     }
+    // Black graphic on Y — a space page would show the HELLO demo.
+    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg,
-        fl_page_write('Y', ' ', '', '', '', $func));
+        '<PY><' . ($func !== '' ? $func : 'FQ') . '><BZ> ');
     if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg,
         fl_page_write('Z', isset($in['text']) ? $in['text'] : '',
@@ -172,7 +179,9 @@ function fpppluginFauxLiteBeep() {
     $in = _flBody();
     $cfg = fl_cfg();
     $count = isset($in['count']) ? max(1, min(99, intval($in['count']))) : 1;
-    list($ok, $d) = fl_send($cfg, fl_page_write('Y', ' '));
+    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if (!$ok) return _flSendResult(false, $d);
+    list($ok, $d) = fl_send($cfg, '<PY><FQ><BZ> ');
     if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg, '<PZ><FO> ');
     if (!$ok) return _flSendResult(false, $d);
@@ -189,7 +198,31 @@ function fpppluginFauxLiteQueue() {
     $base = fl_base(fl_cfg());
     if ($base === null)
         return _flSendResult(false, 'device address is not set/valid');
-    list($code, $body, $err) = fl_http('POST', $base . '/api/loop/' . $action);
+    $ep = $base . '/api/loop/' . $action;
+    if ($action === 'start') {
+        // Firmware takes ?queue=N; pick one: explicit index, else the
+        // boot queue, else the first queue with messages.
+        $idx = isset($in['queue']) ? intval($in['queue']) : -1;
+        if ($idx < 0) {
+            list($qc, $qb) = fl_http('GET', $base . '/api/messages');
+            $cur = json_decode($qb, true);
+            $qs = ($qc === 200 && is_array($cur) && isset($cur['queues']))
+                ? $cur['queues'] : array();
+            $bq = isset($cur['bootQueue']) ? intval($cur['bootQueue']) : -1;
+            if ($bq >= 0 && $bq < count($qs)
+                && !empty($qs[$bq]['messages'])) {
+                $idx = $bq;
+            } else {
+                foreach ($qs as $i => $q) {
+                    if (!empty($q['messages'])) { $idx = $i; break; }
+                }
+            }
+        }
+        if ($idx < 0)
+            return _flSendResult(false, 'device has no queues to run');
+        $ep .= '?queue=' . $idx;
+    }
+    list($code, $body, $err) = fl_http('POST', $ep);
     if ($code !== 200) {
         $msg = $err !== '' ? $err : 'HTTP ' . $code;
         $b = json_decode($body, true);

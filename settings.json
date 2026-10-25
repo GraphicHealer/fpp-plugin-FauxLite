@@ -13,7 +13,7 @@
             "level": 0,
             "settings": [
                 "npEnabled",
-                "npRestoreQueue"
+                "npRotationPage"
             ]
         },
         "FauxLiteShowInfo": {
@@ -77,17 +77,21 @@
             "uncheckedValue": "0",
             "default": "0"
         },
-        "npRestoreQueue": {
-            "name": "npRestoreQueue",
-            "description": "Restore Device Queue on Stop",
-            "tip": "Multi-page rotations borrow the device's message queue. When the show stops, the queue that was there before is put back (and restarted if it was running).",
+        "npRotationPage": {
+            "name": "npRotationPage",
+            "description": "Rotation Page",
+            "tip": "With two or more Now Playing rows, their messages are combined onto this one sign page (paused apart like the device's own queues). A and B are owned by the device's queues; Y and Z stay reserved for one-shot messages.",
             "restart": 0,
             "reboot": 0,
             "level": 0,
-            "type": "checkbox",
-            "checkedValue": "1",
-            "uncheckedValue": "0",
-            "default": "1"
+            "type": "select",
+            "default": "C",
+            "options": {
+                "C": "C", "D": "D", "E": "E", "F": "F",
+                "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L",
+                "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R",
+                "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"
+            }
         },
         "showName": {
             "name": "showName",
@@ -182,14 +186,14 @@
         "stopPage": {
             "name": "stopPage",
             "description": "Sign Page",
-            "tip": "Page used for the blank/time/date/custom stop action.",
+            "tip": "Page used for the blank/time/date/custom stop action (A and B are owned by the device's queues).",
             "restart": 0,
             "reboot": 0,
             "level": 0,
             "type": "select",
-            "default": "A",
+            "default": "C",
             "options": {
-                "A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F",
+                "C": "C", "D": "D", "E": "E", "F": "F",
                 "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L",
                 "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R",
                 "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X"
