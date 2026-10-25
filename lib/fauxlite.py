@@ -442,10 +442,11 @@ def np_pages(cfg):
     """Ordered list of enabled now-playing page dicts.
 
     npPages is a base64-encoded JSON array saved by the config page:
-      [{page,text,function,color,font,size,duration,enabled}, ...]
-    duration is the number of seconds the device queue holds that page
-    while rotating. Falls back to the legacy single-page np* settings
-    when npPages is unset or malformed."""
+      [{text,function,color,font,size,duration,enabled}, ...]
+    Each entry becomes one <FP>-delimited message segment on
+    npRotationPage; duration is the hold time in ~2s steps. Falls back
+    to the legacy single-page np* settings when npPages is unset or
+    malformed."""
     raw = (cfg.get("npPages") or "").strip()
     if raw:
         arr = None
@@ -455,20 +456,15 @@ def np_pages(cfg):
         except Exception:
             log("npPages is not valid base64 JSON — ignoring")
         if isinstance(arr, list):
-            pages, used = [], set()
+            pages = []
             for p in arr[:len(PAGES_MSG)]:
                 if not isinstance(p, dict) or not truthy(p.get("enabled", 1)):
                     continue
-                letter = str(p.get("page") or "").strip()[:1].upper()
-                if letter not in PAGES_MSG or letter in used:
-                    continue  # reserved/invalid letter, or duplicate row
-                used.add(letter)
                 try:
                     dur = int(p.get("duration") or 8)
                 except (TypeError, ValueError):
                     dur = 8
                 pages.append({
-                    "page": letter,
                     "text": str(p.get("text") or "")[:200],
                     "function": str(p.get("function") or ""),
                     "color": str(p.get("color") or ""),
@@ -494,10 +490,17 @@ def combined_page(page, rendered):
     <FP> holds it for ~2s, so a row's hold seconds becomes
     (secs+1)//2 pause tags. After the last segment the page loops back
     to the first, giving a seamless multi-message rotation on a single
-    page with no device-queue involvement at all."""
+    page with no device-queue involvement at all.
+
+    EVERY segment must lead with an <Fx> function tag — it is the
+    message delimiter inside a page (firmware: "each <Fx> tag starts a
+    new message"). A row with no effect selected would merge into the
+    previous message, so empty -> <FA> (Auto)."""
     cmd = "<P%s>" % page
     for p, text in rendered:
-        cmd += page_attrs(p["function"], p["color"], p["font"], p["size"])
+        fx = resolve(p["function"], FUNCTIONS) or "FA"
+        cmd += "<%s>" % fx
+        cmd += page_attrs("", p["color"], p["font"], p["size"])
         cmd += sanitize(text)
         cmd += "<FP>" * ((p["duration"] + 1) // 2)
     return cmd
@@ -574,23 +577,19 @@ def handle_media(cfg, data):
     fields = np_field_map(cfg, data)
     rendered = [(p, render_template(p["text"], fields)) for p in pages]
 
-    if len(pages) == 1:
+    if pages[0].get("legacy"):
+        # Old single-format config: write + run its own page.
         p, text = rendered[0]
-        if p.get("legacy") and not text.strip():
+        if not text.strip():
             text = fields["filename"]
         write_and_run(cfg, p["page"], text, p["color"], p["font"],
                       p["size"], p["function"])
         return 0
 
-    # Each row's content also lands on its own sign page (reachable via
-    # Run Page / countdown end-pages / one-shot restores), then the
-    # combined <FP>-separated page on npRotationPage drives the visible
-    # rotation — written last so it wins if a row shares its letter.
+    # Configured rows all live on the one rotation page as
+    # <FP>-separated messages (the firmware's own queue layout) — a
+    # single write + run, rebuilt on each media event.
     rot = rotation_page(cfg)
-    for p, text in rendered:
-        send_command(cfg, page_write(p["page"], text, p["color"],
-                                     p["font"], p["size"],
-                                     p["function"]))
     send_command(cfg, combined_page(rot, rendered))
     run_page(cfg, rot)
     return 0

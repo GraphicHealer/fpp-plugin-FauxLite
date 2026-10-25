@@ -27,7 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fl_pages'])) {
             if (!is_array($p)) continue;
             $dur = isset($p['duration']) ? intval($p['duration']) : 8;
             $clean[] = array(
-                'page' => fl_page(isset($p['page']) ? $p['page'] : 'A'),
                 'text' => substr((string)(isset($p['text']) ? $p['text'] : ''),
                                  0, 200),
                 'function' => substr((string)(isset($p['function'])
@@ -103,16 +102,13 @@ PrintSettingGroup('FauxLiteNowPlaying', '', '', 1, $pluginName);
 <fieldset>
 <legend>Now Playing Pages</legend>
 <p class="text-muted">
-Each row is one entry in the rotation. With one row the sign just shows
-that page; with two or more, all rows are combined onto the
-<b>Rotation Page</b> — each message displays, then holds for its
-<b>Secs</b> (in ~2s steps, the same pause model the device's own queues
-use) before the next — so the sign cycles them seamlessly with nothing
-else involved. The <b>Page</b> column picks which sign page each row's
-content is also stored on — useful for Run Page commands and one-shot
-restores. Pages A/B are owned by the device's own queues, Y/Z by
-one-shot and boot messages — rows live on C&ndash;X. Leave the list
-empty for the simple default ("{title}" on page C). Text placeholders:
+Each row is one message in the rotation. All enabled rows are combined
+onto the <b>Rotation Page</b> as pause-separated segments — each
+message displays, then holds for its <b>Secs</b> (hold time is in ~2s
+steps, the sign's pause unit) before the next — the same model the
+device's own queues use. An empty Effect means Auto. Leave the list
+empty for the simple default ("{title}" on the rotation page). Text
+placeholders:
 <b>{title} {artist} {album} {sequence} {filename} {type} {year} {genre}
 {track} {length} {seconds} {minutes} {bitrate}</b>, plus the Show Info
 fields <b>{showName} {showTagline} {showHost} {showLocation}
@@ -123,12 +119,17 @@ for one-shot messages.
 </p>
 <table class="table table-striped" id="flPagesTable" style="max-width: 72rem;">
 <thead><tr>
-<th style="width:4rem;">Page</th><th>Text / template</th>
+<th>Text / template</th>
 <th>Effect</th><th>Color</th><th>Font</th><th>Size</th>
 <th style="width:5rem;">Secs</th><th>On</th><th style="width:7rem;"></th>
 </tr></thead>
 <tbody id="flPagesBody"></tbody>
 </table>
+<div style="max-width:72rem;margin-bottom:0.5rem;">
+<small class="text-muted">Command preview (placeholders shown raw):</small>
+<pre id="flPreview" style="white-space:pre-wrap;word-break:break-all;
+     margin:0.25rem 0 0;padding:0.5rem;background:#f4f4f4;"></pre>
+</div>
 <button type="button" class="buttons" onclick="flAddPage()">Add Page</button>
 <button type="button" class="buttons" onclick="flSavePages()">Save Pages</button>
 <span id="flPagesMsg" class="text-muted" style="margin-left:0.5rem;"></span>
@@ -164,7 +165,6 @@ var FL_FONTS = {'':'device default','SA':'Normal','SB':'Bold',
   'SC':'Italic','SD':'Bold italic','SE':'Flash normal','SF':'Flash bold',
   'SG':'Flash italic','SH':'Flash bold italic'};
 var FL_SIZES = {'':'device default','SI':'5x7','SJ':'4x7 (smaller)'};
-var FL_LETTERS = 'CDEFGHIJKLMNOPQRSTUVWX'.split('');
 
 function flSelect(opts, val, cls) {
     var h = '<select' + (cls ? ' class="' + cls + '"' : '') + '>';
@@ -184,16 +184,14 @@ function flRenderPages() {
     for (var i = 0; i < FL_PAGES.length; i++) {
         var p = FL_PAGES[i];
         h += '<tr>'
-          + '<td>' + flSelect(FL_LETTERS.reduce(function(o,l){o[l]=l;return o;},{}),
-                              p.page || 'A', 'fl-page') + '</td>'
-          + '<td><input class="fl-text" type="text" size="28" maxlength="200" '
+          + '<td><input class="fl-text" type="text" size="32" maxlength="200" '
           + 'value="' + flEsc(p.text) + '" placeholder="{artist} - {title}"></td>'
           + '<td>' + flSelect(FL_EFFECTS, p.function || '', 'fl-function') + '</td>'
           + '<td>' + flSelect(FL_COLORS, p.color || '', 'fl-color') + '</td>'
           + '<td>' + flSelect(FL_FONTS, p.font || '', 'fl-font') + '</td>'
           + '<td>' + flSelect(FL_SIZES, p.size || '', 'fl-size') + '</td>'
-          + '<td><input class="fl-duration" type="number" min="1" max="300" '
-          + 'value="' + (p.duration || 8) + '" style="width:4rem;"></td>'
+          + '<td><input class="fl-duration" type="number" min="0" max="300" step="2" '
+          + 'value="' + (p.duration == null ? 8 : p.duration) + '" style="width:4rem;"></td>'
           + '<td><input class="fl-enabled" type="checkbox"'
           + (p.enabled ? ' checked' : '') + '></td>'
           + '<td>'
@@ -209,36 +207,55 @@ function flPullRows() {
     for (var i = 0; i < rows.length; i++) {
         var q = function(sel) { return rows[i].querySelector(sel).value; };
         FL_PAGES[i] = {
-            page: q('.fl-page'),
             text: q('.fl-text'),
             function: q('.fl-function'),
             color: q('.fl-color'),
             font: q('.fl-font'),
             size: q('.fl-size'),
-            duration: Math.max(1, Math.min(300,
-                parseInt(q('.fl-duration'), 10) || 8)),
+            duration: Math.max(0, Math.min(300,
+                isNaN(parseInt(q('.fl-duration'), 10))
+                    ? 8 : parseInt(q('.fl-duration'), 10))),
             enabled: rows[i].querySelector('.fl-enabled').checked ? 1 : 0
         };
     }
 }
+// Mirrors lib/fauxlite.py's combined_page() + sanitize() exactly:
+// every segment leads with an <Fx> tag (empty effect -> FA = Auto,
+// the message delimiter inside a page), then <FP> pauses of ~2s each.
+function flPreview() {
+    flPullRows();
+    var rotEl = document.querySelector('[name="npRotationPage"],#npRotationPage');
+    var rot = (rotEl && rotEl.value) ? rotEl.value : 'C';
+    var enabled = FL_PAGES.filter(function(p) { return p.enabled; });
+    var out = document.getElementById('flPreview');
+    if (!enabled.length) { out.textContent = '(no enabled rows — fallback: {title} on the rotation page)'; return; }
+    var cmd = '<P' + rot + '>';
+    enabled.forEach(function(p) {
+        cmd += '<' + (p['function'] || 'FA') + '>';
+        if (p.color) cmd += '<' + p.color + '>';
+        if (p.font) cmd += '<' + p.font + '>';
+        if (p.size) cmd += '<' + p.size + '>';
+        cmd += String(p.text || '')
+            .replace(/[\x00-\x1f<>]/g, '')
+            .replace(/[^\x20-\x7e]/g, '')
+            .replace(/[ \t]+/g, ' ').trim();
+        cmd += '<FP>'.repeat(Math.floor((p.duration + 1) / 2));
+    });
+    out.textContent = cmd + '\nthen: <RP' + rot + '>';
+}
 function flAddPage() {
     flPullRows();
-    var used = {};
-    FL_PAGES.forEach(function(p) { used[p.page] = 1; });
-    var letter = 'C';
-    for (var i = 0; i < FL_LETTERS.length; i++)
-        if (!used[FL_LETTERS[i]]) { letter = FL_LETTERS[i]; break; }
-    FL_PAGES.push({page: letter, text: '', function: 'FA', color: '',
+    FL_PAGES.push({text: '', 'function': 'FA', color: '',
                    font: '', size: '', duration: 8, enabled: 1});
-    flRenderPages();
+    flRenderPages(); flPreview();
 }
-function flDelPage(i) { flPullRows(); FL_PAGES.splice(i, 1); flRenderPages(); }
+function flDelPage(i) { flPullRows(); FL_PAGES.splice(i, 1); flRenderPages(); flPreview(); }
 function flMovePage(i, d) {
     flPullRows();
     var j = i + d;
     if (j < 0 || j >= FL_PAGES.length) return;
     var t = FL_PAGES[i]; FL_PAGES[i] = FL_PAGES[j]; FL_PAGES[j] = t;
-    flRenderPages();
+    flRenderPages(); flPreview();
 }
 function flSavePages() {
     flPullRows();
@@ -248,9 +265,15 @@ function flSavePages() {
 // Seed one sensible default row so the editor isn't empty on first use
 // (it only persists once Save Pages is clicked).
 if (!FL_PAGES_SAVED && FL_PAGES.length === 0)
-    FL_PAGES = [{page: 'C', text: '{artist} - {title}', function: 'FA',
+    FL_PAGES = [{text: '{artist} - {title}', 'function': 'FA',
                  color: '', font: '', size: '', duration: 8, enabled: 1}];
-flRenderPages();
+flRenderPages(); flPreview();
+document.getElementById('flPagesTable')
+    .addEventListener('input', flPreview);
+document.addEventListener('change', function (e) {
+    if (e.target && (e.target.name === 'npRotationPage'
+                     || e.target.id === 'npRotationPage')) flPreview();
+});
 </script>
 
 <div id="global2" class="settings">

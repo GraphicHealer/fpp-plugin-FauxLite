@@ -48,22 +48,22 @@ message queue, and quick-send controls.
 ## Now Playing pages
 
 The page editor builds the sign's rotation: each row is one message with
-its own text, effect, color, font, size and hold **seconds**. One row = a
-single static page; two or more rows are combined onto the **Rotation
-Page** — each message displays, then holds for its seconds (in ~2s
-steps, the same pause model the device's own queues use) before the
-next — so the sign cycles them seamlessly on one page with nothing else
-involved. Each row's content is also stored on its **Page** letter, so
-it stays reachable via Run Page commands and one-shot restores.
+its own text, effect, color, font, size and hold **seconds**. All enabled
+rows are combined onto the **Rotation Page** — each message displays,
+then holds for its seconds (in ~2s steps, the sign's pause unit — the
+same model the device's own queues use) before the next — so the sign
+cycles them seamlessly on one page with nothing else involved. A live
+**command preview** under the table shows the exact Pro-Lite string that
+will be sent (with `{placeholders}` still raw).
 
 Example — `Jones Light Show` → `Now Playing:` → artist → title:
 
-| Page | Text | Secs |
-| --- | --- | --- |
-| A | `{showName}` | 8 |
-| B | `Now Playing:` | 3 |
-| C | `{artist}` | 6 |
-| D | `{title}` | 6 |
+| Text | Secs |
+| --- | --- |
+| `{showName}` | 8 |
+| `Now Playing:` | 4 |
+| `{artist}` | 6 |
+| `{title}` | 6 |
 
 Text placeholders: `{title}` `{artist}` `{album}` `{sequence}`
 `{media}` `{filename}` `{type}` `{year}` `{genre}` `{track}` `{comment}`
