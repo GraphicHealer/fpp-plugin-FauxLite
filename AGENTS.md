@@ -31,9 +31,10 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
   exec `lib/fauxlite.py`; arg order in the .sh must match `args[]`.
 - `content.php` (output menu), `status.php` (status menu), `about.php`
   (help) + `menu.inc`.
-- `scripts/{fpp_install,fpp_uninstall}.sh` — chmod + mkdir only; **no
-  restartFlag** (callbacks script → live reload per §2.8), uninstall
-  removes only `config/plugin.<name>`.
+- `scripts/{fpp_install,fpp_uninstall}.sh` — chmod + config/plugindata
+  cleanup + `setSetting restartFlag 1` (required while versions[] covers
+  pre-10 FPP, which can't hot-load/unload; droppable on an FPP10-only
+  branch).
 - `pluginInfo.json` — strict JSON; `repoName` = repo dir name.
 
 ## FPP callback contract (verified in fpp src/Plugins.cpp)

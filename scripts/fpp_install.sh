@@ -11,9 +11,10 @@ PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 chmod +x "${PLUGIN_DIR}/callbacks.py" "${PLUGIN_DIR}/lib/fauxlite.py"
 chmod +x "${PLUGIN_DIR}/commands/"*.sh "${PLUGIN_DIR}/scripts/"*.sh
 
-# No restartFlag: install live-loads our commands/descriptions.json and
-# callbacks.py via POST /api/fppd/plugin/<name>/load (PLUGIN_GUIDELINES
-# §2.8 — the flag is only needed when a plugin ships commands with no
-# callbacks script at all). Nothing else is created outside the plugin
-# directory: config lives in FPP's plugin settings file, logs in FPP's
-# logs dir.
+# Nothing else is created outside the plugin directory: config lives in
+# FPP's plugin settings file, logs in FPP's logs dir.
+
+# FPP 10+ hot-loads plugins with a callbacks script; older majors in our
+# versions[] range have no plugin load/unload at all, so they need a
+# full fppd restart to pick this up.
+( set +u; source "${FPPDIR:-/opt/fpp}/scripts/common" && setSetting restartFlag 1 ) || true

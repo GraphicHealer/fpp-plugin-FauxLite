@@ -10,3 +10,6 @@
 
 rm -f "${MEDIADIR}/config/plugin.fpp-plugin-FauxLite"
 rm -rf "${MEDIADIR}/plugindata/fpp-plugin-FauxLite"
+
+# Older FPP majors have no plugin unload — restart fppd there.
+( set +u; source "${FPPDIR:-/opt/fpp}/scripts/common" && setSetting restartFlag 1 ) || true
