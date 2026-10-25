@@ -108,7 +108,6 @@ Pro-Lite spelling:
 - `<FZ>` "Link Page" is listed in the Tru-Color II doc's function
   table but its operand syntax is undocumented — do NOT emit it
   without hardware verification.
-- Trailing space after text keeps the sign out of demo mode.
 - Text is sanitized to ASCII with `<>`/control chars stripped — song
   metadata must not inject protocol codes.
 

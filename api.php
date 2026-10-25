@@ -124,7 +124,7 @@ function fpppluginFauxLiteBlank() {
     // A visibly-empty page falls back to the sign's HELLO demo — real
     // blanking needs an all-black graphic block (we define block Z).
     list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
-    if ($ok) list($ok, $d) = fl_send($cfg, '<P' . $page . '><FQ><BZ> ');
+    if ($ok) list($ok, $d) = fl_send($cfg, '<P' . $page . '><FQ><BZ>');
     if ($ok) list($ok, $d) = fl_send($cfg, '<RP' . $page . '>');
     return _flSendResult($ok, $d);
 }
@@ -157,14 +157,14 @@ function fpppluginFauxLiteOneshot() {
     $size = isset($in['size']) ? $in['size'] : '';
     $func = isset($in['function']) ? $in['function'] : '';
     if (!empty($in['beep'])) {
-        list($ok, $d) = fl_send($cfg, '<PX><FO> ');
+        list($ok, $d) = fl_send($cfg, '<PX><FO>');
         if (!$ok) return _flSendResult(false, $d);
     }
     // Black graphic on Y — a space page would show the HELLO demo.
     list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
     if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg,
-        '<PY><' . ($func !== '' ? $func : 'FQ') . '><BZ> ');
+        '<PY><' . ($func !== '' ? $func : 'FQ') . '><BZ>');
     if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg,
         fl_page_write('Z', isset($in['text']) ? $in['text'] : '',
@@ -181,9 +181,9 @@ function fpppluginFauxLiteBeep() {
     $count = isset($in['count']) ? max(1, min(99, intval($in['count']))) : 1;
     list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
     if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, '<PY><FQ><BZ> ');
+    list($ok, $d) = fl_send($cfg, '<PY><FQ><BZ>');
     if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, '<PZ><FO> ');
+    list($ok, $d) = fl_send($cfg, '<PZ><FO>');
     if (!$ok) return _flSendResult(false, $d);
     list($ok, $d) = fl_send($cfg, sprintf('<RPZ><%02d><RPY>', $count));
     return _flSendResult($ok, $d);

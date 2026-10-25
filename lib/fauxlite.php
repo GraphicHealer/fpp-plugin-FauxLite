@@ -116,7 +116,7 @@ function fl_page($v, $max = 'X', $min = 'C') {
     return ($p >= $min && $p <= $max) ? $p : $min;
 }
 
-/** '<P?><F?><C?><S?>text ' — same arg order as lib/fauxlite.py's
+/** '<P?><F?><C?><S?>text' — same arg order as lib/fauxlite.py's
  *  page_write(page, text, color, font, size, function). */
 function fl_page_write($page, $text, $color = '', $font = '',
                        $size = '', $function = '') {
@@ -125,6 +125,6 @@ function fl_page_write($page, $text, $color = '', $font = '',
         $code = strtoupper(substr(trim((string)$code), 0, 2));
         if ($code !== '') $cmd .= '<' . $code . '>';
     }
-    return $cmd . fl_sanitize($text) . ' ';
+    return $cmd . fl_sanitize($text);
 }
 ?>

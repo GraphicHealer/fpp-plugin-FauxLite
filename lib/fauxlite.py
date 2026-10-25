@@ -280,12 +280,11 @@ def page_attrs(function="", color="", font="", size=""):
 
 def page_write(page, text, color="", font="", size="", function="",
                escape=True):
-    """Build '<P?><F?><C?><S?>text ' — the trailing space keeps a short
-    message from tripping the sign's demo mode. escape=False is for
-    text that already went through sanitize() + field injection (the
-    countdown writer), which legitimately contains '<Fx>' codes."""
+    """Build '<P?><F?><C?><S?>text'. escape=False is for text that
+    already went through sanitize() + field injection (the countdown
+    writer), which legitimately contains '<Fx>' codes."""
     cmd = "<P%s>" % page + page_attrs(function, color, font, size)
-    return cmd + (sanitize(text) if escape else text) + " "
+    return cmd + (sanitize(text) if escape else text)
 
 
 # Live countdown fields the sign renders itself inside page text.
@@ -499,7 +498,7 @@ def combined_page(page, rendered):
     cmd = "<P%s>" % page
     for p, text in rendered:
         cmd += page_attrs(p["function"], p["color"], p["font"], p["size"])
-        cmd += sanitize(text) + " "
+        cmd += sanitize(text)
         cmd += "<FP>" * ((p["duration"] + 1) // 2)
     return cmd
 
@@ -521,9 +520,9 @@ def ensure_black_graphic(cfg):
 
 
 def blank_page_cmd(page, function="FQ"):
-    """'<Px><F?><BZ> ' — an all-black graphic page (a truly blank
+    """'<Px><F?><BZ>' — an all-black graphic page (a truly blank
     display, unlike a space which shows HELLO)."""
-    return "<P%s>%s<BZ> " % (page, page_attrs(function))
+    return "<P%s>%s<BZ>" % (page, page_attrs(function))
 
 
 def blank(cfg, page):
@@ -631,7 +630,7 @@ def oneshot(cfg, text, repeat, color, font, size, function, beep):
     makes the sign fall back to its HELLO demo."""
     repeat = max(1, min(99, int(repeat or 1)))
     if beep:
-        if not send_command(cfg, "<PX><FO> "):
+        if not send_command(cfg, "<PX><FO>"):
             return False
     if not ensure_black_graphic(cfg):
         return False
@@ -649,7 +648,7 @@ def beep(cfg, count):
         return False
     if not send_command(cfg, blank_page_cmd("Y")):
         return False
-    if not send_command(cfg, "<PZ><FO> "):
+    if not send_command(cfg, "<PZ><FO>"):
         return False
     return send_command(cfg, "<RPZ><%02d><RPY>" % count)
 

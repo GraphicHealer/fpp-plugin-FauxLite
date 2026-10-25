@@ -120,8 +120,6 @@ fill that page beforehand (a "SHOWTIME!" message, for example) using
 - A truly blank display needs an all-black graphic block: a visibly
   empty page falls back to the sign's built-in "HELLO" demo. The plugin
   defines graphic block Z as all-black and uses `<BZ>` for blanking.
-- A trailing space is appended to every message to keep the sign out of
-  demo mode.
 - Non-ASCII characters and `<`/`>` are stripped from message text so
   metadata can't inject protocol commands.
 - Logs: **File Manager → Logs → `plugin-fpp-plugin-FauxLite.log`**.
