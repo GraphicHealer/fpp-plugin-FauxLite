@@ -128,7 +128,7 @@ for one-shot messages.
 <div style="max-width:72rem;margin-bottom:0.5rem;">
 <small class="text-muted">Command preview (placeholders shown raw):</small>
 <pre id="flPreview" style="white-space:pre-wrap;word-break:break-all;
-     margin:0.25rem 0 0;padding:0.5rem;background:#f4f4f4;"></pre>
+     margin:0.25rem 0 0;padding:0.5rem;background:#000;color:#fff;"></pre>
 </div>
 <button type="button" class="buttons" onclick="flAddPage()">Add Page</button>
 <button type="button" class="buttons" onclick="flSavePages()">Save Pages</button>
