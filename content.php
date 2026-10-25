@@ -106,7 +106,8 @@ Each row is one message in the rotation. All enabled rows are combined
 onto the <b>Rotation Page</b> as pause-separated segments — each
 message displays, then holds for its <b>Secs</b> (hold time is in ~2s
 steps, the sign's pause unit) before the next — the same model the
-device's own queues use. An empty Effect means Auto. Leave the list
+device's own queues use. Defaults match the device's new queue rows:
+Shift left / Rainbow / Normal / 5x7. Leave the list
 empty for the simple default ("{title}" on the rotation page). Text
 placeholders:
 <b>{title} {artist} {album} {sequence} {filename} {type} {year} {genre}
@@ -147,13 +148,13 @@ for one-shot messages.
 <script>
 var FL_PAGES = <?php echo $npPagesJson; ?>;
 var FL_PAGES_SAVED = <?php echo $npPagesJson !== '[]' ? 'true' : 'false'; ?>;
-var FL_EFFECTS = {'':'device default','FA':'Auto','FB':'Open','FC':'Cover',
+var FL_EFFECTS = {'FS':'Shift left','FA':'Auto','FB':'Open','FC':'Cover',
   'FD':'Date','FE':'Cycling','FF':'Close right','FG':'Close left',
   'FH':'Close both','FI':'Scroll up','FJ':'Scroll down','FK':'Overlap',
   'FL':'Stacking','FM':'Comic 1','FN':'Comic 2','FP':'Pause','FQ':'Appear',
   'FR':'Random','FS':'Shift left','FT':'Time','FU':'Magic',
   'FV':'Thank you','FW':'Welcome'};
-var FL_COLORS = {'':'device default','CA':'Dim red','CB':'Red',
+var FL_COLORS = {'CP':'Rainbow','CA':'Dim red','CB':'Red',
   'CC':'Bright red','CD':'Orange','CE':'Bright orange',
   'CF':'Light yellow','CG':'Yellow','CH':'Bright yellow','CI':'Lime',
   'CJ':'Dim lime','CK':'Bright lime','CL':'Bright green','CM':'Green',
@@ -161,10 +162,10 @@ var FL_COLORS = {'':'device default','CA':'Dim red','CB':'Red',
   'CR':'Red/yel 3D','CS':'Grn/red 3D','CT':'Grn/yel 3D',
   'CU':'Grn on red','CV':'Red on grn','CW':'Org on grn 3D',
   'CX':'Lime on red 3D','CY':'Grn on red 3D','CZ':'Red on grn 3D'};
-var FL_FONTS = {'':'device default','SA':'Normal','SB':'Bold',
+var FL_FONTS = {'SA':'Normal','SB':'Bold',
   'SC':'Italic','SD':'Bold italic','SE':'Flash normal','SF':'Flash bold',
   'SG':'Flash italic','SH':'Flash bold italic'};
-var FL_SIZES = {'':'device default','SI':'5x7','SJ':'4x7 (smaller)'};
+var FL_SIZES = {'SI':'5x7','SJ':'4x7 (smaller)'};
 
 function flSelect(opts, val, cls) {
     var h = '<select' + (cls ? ' class="' + cls + '"' : '') + '>';
@@ -245,8 +246,8 @@ function flPreview() {
 }
 function flAddPage() {
     flPullRows();
-    FL_PAGES.push({text: '', 'function': 'FA', color: '',
-                   font: '', size: '', duration: 8, enabled: 1});
+    FL_PAGES.push({text: '', 'function': 'FS', color: 'CP',
+                   font: 'SA', size: 'SI', duration: 8, enabled: 1});
     flRenderPages(); flPreview();
 }
 function flDelPage(i) { flPullRows(); FL_PAGES.splice(i, 1); flRenderPages(); flPreview(); }
@@ -265,8 +266,8 @@ function flSavePages() {
 // Seed one sensible default row so the editor isn't empty on first use
 // (it only persists once Save Pages is clicked).
 if (!FL_PAGES_SAVED && FL_PAGES.length === 0)
-    FL_PAGES = [{text: '{artist} - {title}', 'function': 'FA',
-                 color: '', font: '', size: '', duration: 8, enabled: 1}];
+    FL_PAGES = [{text: '{artist} - {title}', 'function': 'FS',
+                 color: 'CP', font: 'SA', size: 'SI', duration: 8, enabled: 1}];
 flRenderPages(); flPreview();
 document.getElementById('flPagesTable')
     .addEventListener('input', flPreview);
