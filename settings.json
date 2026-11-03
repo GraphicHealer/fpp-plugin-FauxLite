@@ -68,10 +68,22 @@
         "npEnabled": {
             "name": "npEnabled",
             "description": "Show Now Playing",
-            "tip": "Updates the sign each time a media entry starts, using the Now Playing Pages list below. One page = a single display; two or more rotate via the device's message queue.",
+            "tip": "Updates the sign each time a media entry starts, using the Now Playing Pages list below. One page = a single display; two or more share one sign page, paused apart like the device's own queues.",
             "restart": 0,
             "reboot": 0,
             "level": 0,
+            "type": "checkbox",
+            "checkedValue": "1",
+            "uncheckedValue": "0",
+            "default": "0"
+        },
+        "debugLog": {
+            "name": "debugLog",
+            "description": "Log full commands sent to the sign",
+            "tip": "Off: the plugin log records send size/page only, so One-Shot and Now Playing text stay out of logs and support zips. On: log the exact wire command too.",
+            "restart": 0,
+            "reboot": 0,
+            "level": 1,
             "type": "checkbox",
             "checkedValue": "1",
             "uncheckedValue": "0",

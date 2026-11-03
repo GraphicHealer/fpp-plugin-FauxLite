@@ -2,7 +2,7 @@
     "repoName": "fpp-plugin-FauxLite",
     "name": "FauxLite",
     "author": "GraphicHealer",
-    "description": "Show FPP now-playing info and custom messages on a Pro-Lite LED sign through a FauxLite WiFi-to-serial bridge.",
+    "description": "Show FPP now-playing info and custom messages on a Pro-Lite RS-232 LED sign via FauxLite, a WiFi-to-serial bridge you build by flashing an ESP32 and wiring it to the sign’s serial port.",
     "homeURL": "https://github.com/GraphicHealer/fpp-plugin-FauxLite",
     "iconURL": "https://raw.githubusercontent.com/GraphicHealer/fpp-plugin-FauxLite/master/icon.png",
     "srcURL": "https://github.com/GraphicHealer/fpp-plugin-FauxLite.git",

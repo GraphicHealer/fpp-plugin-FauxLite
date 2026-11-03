@@ -15,7 +15,7 @@
  *   POST oneshot          {text,repeat,color,font,size,function,beep}
  *   POST beep             {count}
  *   POST queue            {action: start|stop}
- *   POST test             {host?}  probe a device (defaults to saved host)
+ *   POST test             probe the saved device address
  */
 
 require_once dirname(__FILE__) . '/lib/fauxlite.php';
@@ -49,12 +49,12 @@ function getEndpointsfpppluginFauxLite() {
     );
 }
 
-function _flBody() {
+function _fauxliteBody() {
     $b = json_decode(file_get_contents('php://input'), true);
     return is_array($b) ? $b : array();
 }
 
-function _flSendResult($ok, $detail) {
+function _fauxliteSendResult($ok, $detail) {
     return json(array('ok' => $ok, 'detail' => $detail));
 }
 
@@ -65,146 +65,146 @@ function fpppluginFauxLiteVersion() {
 
 // GET /api/plugin/fpp-plugin-FauxLite/info
 function fpppluginFauxLiteInfo() {
-    $cfg = fl_cfg();
-    $base = fl_base($cfg);
-    $out = array('enabled' => fl_cfg_enabled($cfg),
+    $cfg = fauxlite_cfg();
+    $base = fauxlite_base($cfg);
+    $out = array('enabled' => fauxlite_cfg_enabled($cfg),
                  'host' => isset($cfg['host']) ? $cfg['host'] : '',
                  'reachable' => false);
     if ($base === null) return json($out);
-    list($code, $body, $err) = fl_http('GET', $base . '/api/info');
+    list($code, $body, $err) = fauxlite_http('GET', $base . '/api/info');
     $out['reachable'] = ($code === 200);
     $out['info'] = $code === 200 ? json_decode($body, true) : null;
     $out['error'] = $err;
-    list($qcode, $qbody) = fl_http('GET', $base . '/api/messages');
+    list($qcode, $qbody) = fauxlite_http('GET', $base . '/api/messages');
     $out['queue'] = $qcode === 200 ? json_decode($qbody, true) : null;
     return json($out);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/send
 function fpppluginFauxLiteSend() {
-    $in = _flBody();
-    $cfg = fl_cfg();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A');
-    $cmd = fl_page_write($page,
+    $in = _fauxliteBody();
+    $cfg = fauxlite_cfg();
+    $page = fauxlite_page(isset($in['page']) ? $in['page'] : 'A');
+    $cmd = fauxlite_page_write($page,
         isset($in['text']) ? $in['text'] : '',
         isset($in['color']) ? $in['color'] : '',
         isset($in['font']) ? $in['font'] : '',
         isset($in['size']) ? $in['size'] : '',
         isset($in['function']) ? $in['function'] : '');
-    list($ok, $d) = fl_send($cfg, $cmd);
+    list($ok, $d) = fauxlite_send($cfg, $cmd);
     // <RPx> is a standalone command — appending it to the page write
     // makes it literal text on the sign.
     if ($ok && !empty($in['runPage']))
-        list($ok, $d) = fl_send($cfg, '<RP' . $page . '>');
-    return _flSendResult($ok, $d);
+        list($ok, $d) = fauxlite_send($cfg, '<RP' . $page . '>');
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/raw
 function fpppluginFauxLiteRaw() {
-    $in = _flBody();
+    $in = _fauxliteBody();
     $cmd = isset($in['command']) ? trim($in['command']) : '';
-    if ($cmd === '') return _flSendResult(false, 'empty command');
-    list($ok, $d) = fl_send(fl_cfg(), $cmd);
-    return _flSendResult($ok, $d);
+    if ($cmd === '') return _fauxliteSendResult(false, 'empty command');
+    list($ok, $d) = fauxlite_send(fauxlite_cfg(), $cmd);
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/runpage
 function fpppluginFauxLiteRunPage() {
-    $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'A', 'Z', 'A');
-    list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
-    return _flSendResult($ok, $d);
+    $in = _fauxliteBody();
+    $page = fauxlite_page(isset($in['page']) ? $in['page'] : 'A', 'Z', 'A');
+    list($ok, $d) = fauxlite_send(fauxlite_cfg(), '<RP' . $page . '>');
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/blank
 function fpppluginFauxLiteBlank() {
-    $in = _flBody();
-    $cfg = fl_cfg();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
+    $in = _fauxliteBody();
+    $cfg = fauxlite_cfg();
+    $page = fauxlite_page(isset($in['page']) ? $in['page'] : 'C');
     // A visibly-empty page falls back to the sign's HELLO demo — real
     // blanking needs an all-black graphic block (we define block Z).
-    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
-    if ($ok) list($ok, $d) = fl_send($cfg, '<P' . $page . '><FQ><BZ>');
-    if ($ok) list($ok, $d) = fl_send($cfg, '<RP' . $page . '>');
-    return _flSendResult($ok, $d);
+    list($ok, $d) = fauxlite_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if ($ok) list($ok, $d) = fauxlite_send($cfg, '<P' . $page . '><FQ><BZ>');
+    if ($ok) list($ok, $d) = fauxlite_send($cfg, '<RP' . $page . '>');
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/time
 function fpppluginFauxLiteTime() {
-    $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FT>');
-    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
-    return _flSendResult($ok, $d);
+    $in = _fauxliteBody();
+    $page = fauxlite_page(isset($in['page']) ? $in['page'] : 'C');
+    list($ok, $d) = fauxlite_send(fauxlite_cfg(), '<P' . $page . '><FT>');
+    if ($ok) list($ok, $d) = fauxlite_send(fauxlite_cfg(), '<RP' . $page . '>');
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/date
 function fpppluginFauxLiteDate() {
-    $in = _flBody();
-    $page = fl_page(isset($in['page']) ? $in['page'] : 'C');
-    list($ok, $d) = fl_send(fl_cfg(), '<P' . $page . '><FD>');
-    if ($ok) list($ok, $d) = fl_send(fl_cfg(), '<RP' . $page . '>');
-    return _flSendResult($ok, $d);
+    $in = _fauxliteBody();
+    $page = fauxlite_page(isset($in['page']) ? $in['page'] : 'C');
+    list($ok, $d) = fauxlite_send(fauxlite_cfg(), '<P' . $page . '><FD>');
+    if ($ok) list($ok, $d) = fauxlite_send(fauxlite_cfg(), '<RP' . $page . '>');
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/oneshot
 function fpppluginFauxLiteOneshot() {
-    $in = _flBody();
-    $cfg = fl_cfg();
+    $in = _fauxliteBody();
+    $cfg = fauxlite_cfg();
     $repeat = isset($in['repeat']) ? max(1, min(99, intval($in['repeat']))) : 1;
     $color = isset($in['color']) ? $in['color'] : '';
     $font = isset($in['font']) ? $in['font'] : '';
     $size = isset($in['size']) ? $in['size'] : '';
     $func = isset($in['function']) ? $in['function'] : '';
     if (!empty($in['beep'])) {
-        list($ok, $d) = fl_send($cfg, '<PX><FO>');
-        if (!$ok) return _flSendResult(false, $d);
+        list($ok, $d) = fauxlite_send($cfg, '<PX><FO>');
+        if (!$ok) return _fauxliteSendResult(false, $d);
     }
     // Black graphic on Y — a space page would show the HELLO demo.
-    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg,
-        '<PY><' . ($func !== '' ? $func : 'FQ') . '><BZ>');
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg,
-        fl_page_write('Z', isset($in['text']) ? $in['text'] : '',
+    list($ok, $d) = fauxlite_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg,
+        '<PY><' . (fauxlite_resolve($func, 'function') !== '' ? fauxlite_resolve($func, 'function') : 'FQ') . '><BZ>');
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg,
+        fauxlite_page_write('Z', isset($in['text']) ? $in['text'] : '',
                       $color, $font, $size, $func));
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, sprintf('<RPZ><%02d><RPY>', $repeat));
-    return _flSendResult($ok, $d);
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg, sprintf('<RPZ><%02d><RPY>', $repeat));
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/beep
 function fpppluginFauxLiteBeep() {
-    $in = _flBody();
-    $cfg = fl_cfg();
+    $in = _fauxliteBody();
+    $cfg = fauxlite_cfg();
     $count = isset($in['count']) ? max(1, min(99, intval($in['count']))) : 1;
-    list($ok, $d) = fl_send($cfg, '<GZ>' . str_repeat('B', 126));
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, '<PY><FQ><BZ>');
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, '<PZ><FO>');
-    if (!$ok) return _flSendResult(false, $d);
-    list($ok, $d) = fl_send($cfg, sprintf('<RPZ><%02d><RPY>', $count));
-    return _flSendResult($ok, $d);
+    list($ok, $d) = fauxlite_send($cfg, '<GZ>' . str_repeat('B', 126));
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg, '<PY><FQ><BZ>');
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg, '<PZ><FO>');
+    if (!$ok) return _fauxliteSendResult(false, $d);
+    list($ok, $d) = fauxlite_send($cfg, sprintf('<RPZ><%02d><RPY>', $count));
+    return _fauxliteSendResult($ok, $d);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/queue
 function fpppluginFauxLiteQueue() {
-    $in = _flBody();
+    $in = _fauxliteBody();
     $action = isset($in['action']) ? $in['action'] : '';
     if ($action !== 'start' && $action !== 'stop')
-        return _flSendResult(false, 'action must be start or stop');
-    $base = fl_base(fl_cfg());
+        return _fauxliteSendResult(false, 'action must be start or stop');
+    $base = fauxlite_base(fauxlite_cfg());
     if ($base === null)
-        return _flSendResult(false, 'device address is not set/valid');
+        return _fauxliteSendResult(false, 'device address is not set/valid');
     $ep = $base . '/api/loop/' . $action;
     if ($action === 'start') {
         // Firmware takes ?queue=N; pick one: explicit index, else the
         // boot queue, else the first queue with messages.
         $idx = isset($in['queue']) ? intval($in['queue']) : -1;
         if ($idx < 0) {
-            list($qc, $qb) = fl_http('GET', $base . '/api/messages');
+            list($qc, $qb) = fauxlite_http('GET', $base . '/api/messages');
             $cur = json_decode($qb, true);
             $qs = ($qc === 200 && is_array($cur) && isset($cur['queues']))
                 ? $cur['queues'] : array();
@@ -219,28 +219,31 @@ function fpppluginFauxLiteQueue() {
             }
         }
         if ($idx < 0)
-            return _flSendResult(false, 'device has no queues to run');
+            return _fauxliteSendResult(false, 'device has no queues to run');
         $ep .= '?queue=' . $idx;
     }
-    list($code, $body, $err) = fl_http('POST', $ep);
+    list($code, $body, $err) = fauxlite_http('POST', $ep);
     if ($code !== 200) {
         $msg = $err !== '' ? $err : 'HTTP ' . $code;
         $b = json_decode($body, true);
         if (is_array($b) && isset($b['error'])) $msg = $b['error'];
-        return _flSendResult(false, $msg);
+        return _fauxliteSendResult(false, $msg);
     }
-    return _flSendResult(true, 'queue ' . $action);
+    return _fauxliteSendResult(true, 'queue ' . $action);
 }
 
 // POST /api/plugin/fpp-plugin-FauxLite/test
+// Probes the SAVED device address only — the request body must never be
+// able to aim FPP's HTTP at an arbitrary host:port (SSRF).
+// POST /api/plugin/fpp-plugin-FauxLite/test
+// Probes the SAVED device address only — the request body must never be
+// able to aim FPP's HTTP at an arbitrary host:port (SSRF).
 function fpppluginFauxLiteTest() {
-    $in = _flBody();
-    $host = isset($in['host']) && fl_host_valid(trim($in['host']))
-        ? rtrim(trim($in['host']), '/')
-        : (isset(fl_cfg()['host']) ? rtrim(trim(fl_cfg()['host']), '/') : '');
-    if ($host === '' || !fl_host_valid($host))
+    $cfg = fauxlite_cfg();
+    $host = isset($cfg['host']) ? rtrim(trim($cfg['host']), '/') : '';
+    if ($host === '' || !fauxlite_host_valid($host))
         return json(array('ok' => false, 'detail' => 'no device address'));
-    list($code, $body, $err) = fl_http('GET', 'http://' . $host . '/api/info');
+    list($code, $body, $err) = fauxlite_http('GET', 'http://' . $host . '/api/info');
     $out = array('ok' => $code === 200, 'detail' => $err);
     $info = json_decode($body, true);
     $out['info'] = is_array($info) ? $info : null;

@@ -157,7 +157,15 @@ def send_command(cfg, command):
     if status != 200:
         log("send failed (%s): %r" % (err or status, command[:80]))
         return False
-    log("sent: %s" % command)
+    # Default level records length+page only — One-Shot texts are often
+    # visitor messages and shouldn't sit in rotated logs/support zips.
+    # The full wire command is available behind the debugLog setting.
+    if truthy(cfg.get("debugLog")):
+        log("sent: %s" % command)
+    else:
+        m = re.search(r"<P([A-Z])>", command)
+        log("sent %d chars%s" % (len(command),
+            " (page %s)" % m.group(1) if m else ""))
     return True
 
 
@@ -380,12 +388,12 @@ def fpp_system_info():
     """Best-effort HostName/HostDescription from the local fppd API —
     used by the {hostname}/{hostdesc} placeholders. 1.5s budget; empty
     on any failure."""
-    st, info, _ = http_json("GET", FPP_API + "/api/system/info",
+    st, info, _ = http_json("GET", FPP_API + "/api/system/info?simple=1",
                           timeout=1.5)
     return info if st == 200 and isinstance(info, dict) else {}
 
 
-def np_field_map(cfg, data):
+def np_field_map(cfg, data, texts=None):
     """All placeholders available in page text: the media callback's
     TagLib fields, the plugin's Show Info settings, and FPP's host
     identity."""
@@ -418,7 +426,9 @@ def np_field_map(cfg, data):
         time="{time}",
         date="{date}",
     )
-    sysinfo = fpp_system_info()
+    want_host = texts is None or any(
+        "{hostname" in t or "{hostdesc" in t for t in texts)
+    sysinfo = fpp_system_info() if want_host else {}
     fields["hostname"] = sysinfo.get("HostName", "")
     fields["hostdesc"] = sysinfo.get("HostDescription", "")
     return fields
@@ -587,7 +597,7 @@ def handle_media(cfg, data):
     if etype in ("", "pause", "event"):
         return 0
     pages = np_pages(cfg)
-    fields = np_field_map(cfg, data)
+    fields = np_field_map(cfg, data, [p.get("text", "") for p in pages])
     rendered = [(p, render_template(p["text"], fields)) for p in pages]
 
     if pages[0].get("legacy"):

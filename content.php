@@ -18,9 +18,9 @@ require_once dirname(__FILE__) . '/lib/fauxlite.php';
 // keeps embedded quotes/newlines safe for the key=value file and for
 // FPP's backup mechanism. The Python worker decodes it the same way.
 $pagesSaved = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fl_pages'])) {
-    $arr = json_decode(isset($_POST['fl_pages_json'])
-                       ? $_POST['fl_pages_json'] : '', true);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fauxlite_pages'])) {
+    $arr = json_decode(isset($_POST['fauxlite_pages_json'])
+                       ? $_POST['fauxlite_pages_json'] : '', true);
     $clean = array();
     if (is_array($arr)) {
         foreach (array_slice($arr, 0, 24) as $p) {
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fl_pages'])) {
 }
 
 $npPagesJson = '[]';
-$cfgAll = fl_cfg();
+$cfgAll = fauxlite_cfg();
 if (isset($cfgAll['npPages']) && $cfgAll['npPages'] !== '') {
     $dec = json_decode(base64_decode($cfgAll['npPages']), true);
     if (is_array($dec)) $npPagesJson = json_encode($dec);
@@ -61,13 +61,13 @@ if (isset($cfgAll['npPages']) && $cfgAll['npPages'] !== '') {
 
 $testInfo = null;
 $testError = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fl_test'])) {
-    $cfg = fl_cfg();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fauxlite_test'])) {
+    $cfg = fauxlite_cfg();
     $host = isset($cfg['host']) ? rtrim(trim($cfg['host']), '/') : '';
-    if ($host === '' || !fl_host_valid($host)) {
+    if ($host === '' || !fauxlite_host_valid($host)) {
         $testError = 'Set a valid device address above first.';
     } else {
-        list($code, $body, $err) = fl_http('GET', 'http://' . $host . '/api/info');
+        list($code, $body, $err) = fauxlite_http('GET', 'http://' . $host . '/api/info');
         if ($code === 200) {
             $testInfo = json_decode($body, true);
             if (!is_array($testInfo)
@@ -119,7 +119,8 @@ itself, and live sign inserts <b>{time}</b> (sign clock) and
 &rarr; <i>{artist}</i> &rarr; <i>{title}</i>. Pages Y/Z stay reserved
 for one-shot messages.
 </p>
-<table class="table table-striped" id="flPagesTable" style="max-width: 72rem;">
+<div style="overflow-x:auto;max-width:72rem;">
+<table class="table table-striped" id="flPagesTable">
 <thead><tr>
 <th>Text / template</th>
 <th>Effect</th><th>Color</th><th>Font</th><th>Size</th>
@@ -127,17 +128,18 @@ for one-shot messages.
 </tr></thead>
 <tbody id="flPagesBody"></tbody>
 </table>
+</div>
 <div style="max-width:72rem;margin-bottom:0.5rem;">
 <small class="text-muted">Command preview (placeholders shown raw):</small>
-<pre id="flPreview" style="white-space:pre-wrap;word-break:break-all;
-     margin:0.25rem 0 0;padding:0.5rem;background:#000;color:#fff;"></pre>
+<pre id="flPreview" class="form-control" style="white-space:pre-wrap;word-break:break-all;
+     margin:0.25rem 0 0;padding:0.5rem;height:auto;font-family:monospace;"></pre>
 </div>
 <button type="button" class="buttons" onclick="flAddPage()">Add Page</button>
 <button type="button" class="buttons" onclick="flSavePages()">Save Pages</button>
 <span id="flPagesMsg" class="text-muted" style="margin-left:0.5rem;"></span>
 <form method="post" action="" id="flPagesForm" style="display:none;">
-<input type="hidden" name="fl_pages" value="1">
-<input type="hidden" name="fl_pages_json" id="flPagesJson" value="">
+<input type="hidden" name="fauxlite_pages" value="1">
+<input type="hidden" name="fauxlite_pages_json" id="flPagesJson" value="">
 </form>
 <?php if ($pagesSaved === true): ?>
 <p class="text-success" style="margin-top:0.5rem;">Page list saved.</p>
@@ -187,18 +189,18 @@ function flRenderPages() {
         h += '<tr>'
           + '<td><input class="fl-text" type="text" size="32" maxlength="200" '
           + 'value="' + flEsc(p.text) + '" placeholder="{artist} - {title}"></td>'
-          + '<td>' + flSelect(FL_EFFECTS, p.function || '', 'fl-function') + '</td>'
-          + '<td>' + flSelect(FL_COLORS, p.color || '', 'fl-color') + '</td>'
-          + '<td>' + flSelect(FL_FONTS, p.font || '', 'fl-font') + '</td>'
-          + '<td>' + flSelect(FL_SIZES, p.size || '', 'fl-size') + '</td>'
+          + '<td>' + flSelect(FL_EFFECTS, p.function || '', 'fl-function form-control') + '</td>'
+          + '<td>' + flSelect(FL_COLORS, p.color || '', 'fl-color form-control') + '</td>'
+          + '<td>' + flSelect(FL_FONTS, p.font || '', 'fl-font form-control') + '</td>'
+          + '<td>' + flSelect(FL_SIZES, p.size || '', 'fl-size form-control') + '</td>'
           + '<td><input class="fl-duration" type="number" min="0" max="300" step="2" '
           + 'value="' + (p.duration == null ? 8 : p.duration) + '" style="width:4rem;"></td>'
           + '<td><input class="fl-enabled" type="checkbox"'
           + (p.enabled ? ' checked' : '') + '></td>'
           + '<td>'
-          + '<button type="button" onclick="flMovePage(' + i + ',-1)" title="Move up">&#8593;</button>'
-          + '<button type="button" onclick="flMovePage(' + i + ',1)" title="Move down">&#8595;</button>'
-          + '<button type="button" onclick="flDelPage(' + i + ')" title="Delete">&#10005;</button>'
+          + '<button type="button" class="buttons" onclick="flMovePage(' + i + ',-1)" title="Move up">&#8593;</button>'
+          + '<button type="button" class="buttons" onclick="flMovePage(' + i + ',1)" title="Move down">&#8595;</button>'
+          + '<button type="button" class="buttons" onclick="flDelPage(' + i + ')" title="Delete">&#10005;</button>'
           + '</td></tr>';
     }
     body.innerHTML = h;
@@ -289,7 +291,7 @@ PrintSettingGroup('FauxLiteShowStopped', '', '', 1, $pluginName);
 <legend>Connection test</legend>
 <p class="text-muted">Probes the saved device address (GET /api/info).</p>
 <form method="post" action="">
-<button type="submit" name="fl_test" value="1" class="buttons">Test Connection</button>
+<button type="submit" name="fauxlite_test" value="1" class="buttons">Test Connection</button>
 </form>
 <?php if ($testInfo !== null): ?>
 <table class="table table-striped" style="max-width: 40rem; margin-top: 0.5rem;">

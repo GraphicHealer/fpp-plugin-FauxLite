@@ -111,7 +111,19 @@ def main(argv):
         # lifecycle passes the phase as a bare arg: --type lifecycle startup
         name = data_arg or (args[-1] if args else "")
         if name == "shutdown" and plugin_ready(cfg):
-            spawn(["lifecycle", "shutdown"])
+            # fppd exits right after this callback and its cgroup takes the
+            # detached worker with it (KillMode=control-group) — the stop
+            # action must run IN this callback's own wait window (~5s), or
+            # it never reaches the sign. Foreground + hard timeout keeps it
+            # inside that window.
+            try:
+                subprocess.run(
+                    [PY, LIB, "lifecycle", "shutdown"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL, cwd=PLUGINDIR,
+                    timeout=4.5)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                log("lifecycle shutdown run failed: %s" % e)
         return 0
 
     return 0

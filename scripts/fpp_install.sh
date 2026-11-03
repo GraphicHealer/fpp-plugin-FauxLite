@@ -17,4 +17,4 @@ chmod +x "${PLUGIN_DIR}/commands/"*.sh "${PLUGIN_DIR}/scripts/"*.sh
 # FPP 10+ hot-loads plugins with a callbacks script; older majors in our
 # versions[] range have no plugin load/unload at all, so they need a
 # full fppd restart to pick this up.
-( set +u; source "${FPPDIR:-/opt/fpp}/scripts/common" && setSetting restartFlag 1 ) || true
+( set +u; source "${FPPDIR:-/opt/fpp}/scripts/common" && set +u; setSetting restartFlag 1 ) || true

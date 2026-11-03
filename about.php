@@ -33,9 +33,9 @@ Test Connection probes <code>/api/info</code> on the saved address.
 
 <h4>Pages</h4>
 <p>
-Pages A&ndash;X are free for your use. Pages Y and Z are reserved: the
-one-shot message and beep commands use them to flash temporary content and
-then restore what was showing.
+Pages C&ndash;X are free for your use. The FauxLite firmware owns A and B
+for its own message queues; Y and Z are reserved for the one-shot message
+and beep commands, which use them to flash temporary content.
 </p>
 
 <h4>Pro-Lite cheat sheet</h4>
@@ -47,8 +47,6 @@ then restore what was showing.
 fonts <code>&lt;SA&gt;</code>&ndash;<code>&lt;SH&gt;</code>,
 sizes <code>&lt;SI&gt;</code>/<code>&lt;SJ&gt;</code>,
 effects <code>&lt;FA&gt;</code>&ndash;<code>&lt;FW&gt;</code></li>
-<li>A trailing space in a page keeps the sign out of its demo mode —
-the plugin appends one automatically.</li>
 </ul>
 
 <h4>Troubleshooting</h4>

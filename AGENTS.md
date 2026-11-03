@@ -8,7 +8,9 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
 
 - `callbacks.py` — fppd entry point, keep it FAST (fppd waitpid()s on it);
   parses args, gates on settings, spawns `lib/fauxlite.py` DETACHED and
-  exits. Never does network I/O itself.
+  exits. Never does network I/O itself. EXCEPTION: lifecycle shutdown
+  runs the worker foreground (timeout 4.5s) inside fppd's ~5s wait — a
+  detached child dies with fppd's cgroup before the stop action lands.
 - `lib/fauxlite.py` — worker: Pro-Lite command builder + bounded-HTTP
   client + CLI (`media`/`playlist`/`lifecycle` handlers plus
   `send/raw/run/blank/time/date/queue/oneshot/beep/countdown/info/
@@ -20,7 +22,8 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
 - `settings.json` — declarative fields (PrintSettingGroup, instant save).
   Keys: `enabled`, `host`, `npEnabled`, `npRotationPage`,
   `showName`/`showTagline`/`showHost`/`showLocation`/`showSchedule`/
-  `showUrl` (the `{show*}` placeholders), `stopAction` (keep|blank|
+  `showUrl` (the `{show*}` placeholders), `debugLog` (verbose wire log),
+  `stopAction` (keep|blank|
   time|date|custom|queue), `stopPage`, `stopText`, `stopColor`,
   `stopFunction`. `npPages` = base64 JSON array of
   `{page,text,function,color,font,size,duration,enabled}` written by the
@@ -28,7 +31,11 @@ Python + PHP — zero deps (FPP images ship python3 and php-curl).
   key=value line). Legacy `npPage`/`npFormat`/`npFunction`/`npColor`/
   `npFont`/`npSize` are still honored when `npPages` is empty.
 - `commands/descriptions.json` + `commands/*.sh` — thin wrappers that
-  exec `lib/fauxlite.py`; arg order in the .sh must match `args[]`.
+  `setsid`-spawn `lib/fauxlite.py` DETACHED (`… </dev/null >/dev/null
+  2>&1 &`) and exit immediately — fppd waitpid()s on the script and
+  ScriptCommand runs on its main loop, so a synchronous call would stall
+  the playlist for the full HTTP timeout when the sign is off. Arg order
+  in the .sh must match `args[]`.
 - `content.php` (output menu), `status.php` (status menu), `about.php`
   (help) + `menu.inc`.
 - `scripts/{fpp_install,fpp_uninstall}.sh` — chmod + config/plugindata
@@ -118,6 +125,8 @@ Pro-Lite spelling:
   written by SetPluginSetting/WriteSettingToFile). No daemon, no state
   files — the rotation is stateless (page rewritten per media event).
 - Single plugin log `logs/plugin-fpp-plugin-FauxLite.log` (FPP rotates).
+  Default level logs send size/page only — full wire commands only when
+  `debugLog` is on (One-Shot texts are often visitor messages).
 - HTTP timeouts: 4s total, always bounded; failures log + return, never
   stall fppd.
 - No secrets, no auth — host is the only sensitive-ish value and it's
